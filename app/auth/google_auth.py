@@ -187,8 +187,8 @@ async def refresh_token(request: Request, db: AsyncSession = Depends(get_db)):
         token_data = await refresh_jwt_token(refresh_token=token, db=db)
 
         response = JSONResponse({"access_token": token_data.get("access_token"), "refresh_token": token_data.get("refresh_token")})
-        response.set_cookie(key="access_token", httponly=True, value=f"Bearer {token_data.get("access_token")}", secure=True, samesite='lax')
-        response.set_cookie(key="refresh_token", httponly=True, value=f"Bearer {token_data.get("refresh_token")}", secure=True, samesite='lax')
+        response.set_cookie(key="access_token", httponly=True, value=f"Bearer {token_data.get('access_token')}", secure=True, samesite='lax')
+        response.set_cookie(key="refresh_token", httponly=True, value=f"Bearer {token_data.get('refresh_token')}", secure=True, samesite='lax')
         
         return response
     
