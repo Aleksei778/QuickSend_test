@@ -187,7 +187,8 @@ services:
     container_name: backend
     volumes:
       - ./app:/app
-      - ./config.py:/app/config.py 
+      - ./config.py:/app/config.py
+      - ./site-front3:/site-front3 
     ports:
       - "8000:8000"
     depends_on:
