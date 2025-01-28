@@ -3,11 +3,11 @@ import os
 
 load_dotenv()
 
-DB_HOST = os.environ.get("DB_HOST")
-DB_PORT = os.environ.get("DB_PORT")
-DB_NAME = os.environ.get("DB_NAME")
-DB_USER = os.environ.get("DB_USER")
-DB_PASS = os.environ.get("DB_PASS")
+DB_PORT = os.getenv("DB_PROD_PORT", "5432")  # добавьте значение по умолчанию
+DB_HOST = os.getenv("DB_PROD_HOST", "postgres")  # используйте имя сервиса из docker-compose
+DB_NAME = os.getenv("DB_PROD_NAME")
+DB_USER = os.getenv("DB_PROD_USER")
+DB_PASS = os.getenv("DB_PROD_PASS")
 JWT_ACCESS_SECRET_FOR_AUTH = os.environ.get("JWT_ACCESS_SECRET_FOR_AUTH")
 JWT_REFRESH_SECRET_FOR_AUTH = os.environ.get("JWT_REFRESH_SECRET_FOR_AUTH")
 SECRET_FOR_MANAGER = os.environ.get("SECRET_FOR_MANAGER")
