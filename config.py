@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+load_dotenv(dotenv_path='.env')
 
 DB_PORT = os.getenv("DB_PROD_PORT", "5432")  # добавьте значение по умолчанию
 DB_HOST = os.getenv("DB_PROD_HOST", "postgres")  # используйте имя сервиса из docker-compose
