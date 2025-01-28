@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 services:
   zookeeper:
     image: 'docker.io/bitnami/zookeeper:latest'
@@ -129,7 +129,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    depends_on:
+    networks:
       - web_app
   
   prometheus:
@@ -146,6 +146,8 @@ services:
       - '--web.console.libraries=/opt/bitnami/prometheus/conf/console_libraries'
       - '--web.console.templates=/opt/bitnami/prometheus/conf/consoles'
     restart: unless-stopped
+    networks:
+      - web_app
   
   grafana:
     image: 'docker.io/bitnami/grafana:latest'
@@ -162,6 +164,8 @@ services:
       - grafana_data:/opt/bitnami/grafana/data
       - ./grafana/provisioning:/opt/bitnami/grafana/conf/provisioning
     restart: unless-stopped
+    networks:
+      - web_app
 
   backend:
     build:
@@ -193,3 +197,9 @@ services:
     
 networks:
   web_app:
+
+volumes:
+  zookeeper_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
