@@ -15,6 +15,25 @@ services:
       - web_app
     restart: always
 
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_PROD_NAME}
+      - POSTGRES_USER=${DB_PROD_USER}
+      - POSTGRES_PASSWORD=${DB_PROD_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - web_app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U your_user -d your_db_name"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   kafka1:
     image: 'docker.io/bitnami/kafka:latest'
     container_name: kafka1
@@ -27,20 +46,20 @@ services:
       - KAFKA_CFG_BROKER_ID=1
       # Внешний листенер для клиентов
       - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka1:9092,EXTERNAL://localhost:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka1:9092,EXTERNAL://${KAFKA_URL}:9093
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
       # Безопасность
       - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
       - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_USERS=user1
-      - KAFKA_CLIENT_PASSWORDS=password1
+      - KAFKA_CLIENT_USERS=${KAFKA_CLIENT_USERS}
+      - KAFKA_CLIENT_PASSWORDS=${KAFKA_CLIENT_PASSWORDS}
       # SSL настройки
       - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.jks
-      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
+      - KAFKA_CFG_SSL_KEY_PASSWORD=${KEYSTORE_PASSWORD}
       - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
-      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=${KEYSTORE_PASSWORD}
       # Настройки производительности
       - KAFKA_CFG_NUM_PARTITIONS=3
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
@@ -71,20 +90,20 @@ services:
       - KAFKA_CFG_BROKER_ID=2
       # Внешний листенер для клиентов
       - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:9094,EXTERNAL://0.0.0.0:9095
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka2:9094,EXTERNAL://localhost:9095
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka2:9094,EXTERNAL://${KAFKA_URL}:9095
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
       # Безопасность
       - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
       - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_USERS=user1
-      - KAFKA_CLIENT_PASSWORDS=password1
+      - KAFKA_CLIENT_USERS=${KAFKA_CLIENT_USERS}
+      - KAFKA_CLIENT_PASSWORDS=${KAFKA_CLIENT_PASSWORDS}
       # SSL настройки
       - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.jks
-      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
+      - KAFKA_CFG_SSL_KEY_PASSWORD=${KEYSTORE_PASSWORD}
       - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
-      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=${KEYSTORE_PASSWORD}
       # Настройки производительности
       - KAFKA_CFG_NUM_PARTITIONS=3
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
