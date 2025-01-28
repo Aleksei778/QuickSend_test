@@ -12,27 +12,8 @@ services:
     volumes:
       - zookeeper_data:/bitnami/zookeeper
     networks:
-      - web_app
+      - kafka_network
     restart: always
-
-  postgres:
-    image: postgres:latest
-    container_name: postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=${DB_PROD_NAME}
-      - POSTGRES_USER=${DB_PROD_USER}
-      - POSTGRES_PASSWORD=${DB_PROD_PASS}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - web_app
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U your_user -d your_db_name"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   kafka1:
     image: 'docker.io/bitnami/kafka:latest'
@@ -46,20 +27,20 @@ services:
       - KAFKA_CFG_BROKER_ID=1
       # Внешний листенер для клиентов
       - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka1:9092,EXTERNAL://${KAFKA_URL}:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka1:9092,EXTERNAL://localhost:9093
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
       # Безопасность
       - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
       - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_USERS=${KAFKA_CLIENT_USERS}
-      - KAFKA_CLIENT_PASSWORDS=${KAFKA_CLIENT_PASSWORDS}
+      - KAFKA_CLIENT_USERS=user1
+      - KAFKA_CLIENT_PASSWORDS=password1
       # SSL настройки
       - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.jks
-      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
-      - KAFKA_CFG_SSL_KEY_PASSWORD=${KEYSTORE_PASSWORD}
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
+      - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
       - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
-      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=${KEYSTORE_PASSWORD}
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
       # Настройки производительности
       - KAFKA_CFG_NUM_PARTITIONS=3
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
@@ -74,7 +55,7 @@ services:
     volumes:
       - ./certs:/opt/bitnami/kafka/config/certs
     networks:
-      - web_app
+      - kafka_network
     depends_on:
       - zookeeper
 
@@ -90,20 +71,20 @@ services:
       - KAFKA_CFG_BROKER_ID=2
       # Внешний листенер для клиентов
       - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:9094,EXTERNAL://0.0.0.0:9095
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka2:9094,EXTERNAL://${KAFKA_URL}:9095
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka2:9094,EXTERNAL://localhost:9095
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
       # Безопасность
       - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
       - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_USERS=${KAFKA_CLIENT_USERS}
-      - KAFKA_CLIENT_PASSWORDS=${KAFKA_CLIENT_PASSWORDS}
+      - KAFKA_CLIENT_USERS=user1
+      - KAFKA_CLIENT_PASSWORDS=password1
       # SSL настройки
       - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.jks
-      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}
-      - KAFKA_CFG_SSL_KEY_PASSWORD=${KEYSTORE_PASSWORD}
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
+      - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
       - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
-      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=${KEYSTORE_PASSWORD}
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
       # Настройки производительности
       - KAFKA_CFG_NUM_PARTITIONS=3
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
@@ -118,7 +99,7 @@ services:
     volumes:
       - ./certs:/opt/bitnami/kafka/config/certs
     networks:
-      - web_app
+      - kafka_network
     depends_on:
       - zookeeper
 
@@ -129,8 +110,6 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    depends_on:
-      - web_app
   
   prometheus:
     image: 'docker.io/bitnami/prometheus:latest'
@@ -163,33 +142,12 @@ services:
       - ./grafana/provisioning:/opt/bitnami/grafana/conf/provisioning
     restart: unless-stopped
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: backend
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
-      - zookeeper
-      - kafka1
-      - kafka2
-      - redis
-    networks:
-      - web_app
-  
-  nginx:
-    image: nginx:stable-alpine
-    container_name: nginx
-    ports:
-      - "80:80"
-    volumes:
-      - './nginx.conf:/etc/nginx/nginx.conf'
-    depends_on:
-      - backend
-    networks:
-      - web_app
-    
 networks:
-  web_app:
+  kafka_network:
+    driver: bridge
+
+volumes:
+  zookeeper_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
