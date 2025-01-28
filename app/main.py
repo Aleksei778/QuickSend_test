@@ -7,7 +7,7 @@ from typing import List
 import json
 
 # Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__), '..')))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, APIRouter, Response
 from fastapi.responses import FileResponse, HTMLResponse
