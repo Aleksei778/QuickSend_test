@@ -172,6 +172,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: backend
+    volumes:
+      - ./app:/app
     ports:
       - "8000:8000"
     depends_on:
