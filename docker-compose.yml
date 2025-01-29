@@ -211,7 +211,66 @@ services:
       - backend
     networks:
       - web_app
-    
+  
+  consumer1:
+    build:
+      context: .
+    command: python consumer.py
+    environment:
+      CONSUMER_ID: "1"
+  consumer2:
+    build:
+      context: .
+    command: python consumer.py
+    environment:
+      CONSUMER_ID: "2"
+  consumer3:
+    build:
+      context: .
+    command: python consumer.py
+    environment:
+      CONSUMER_ID: "3"
+  consumer4:
+    build:
+      context: .
+    command: python consumer.py
+    environment:
+      CONSUMER_ID: "4"
+  consumer5:
+    build:
+      context: .
+    command: python consumer.py
+    environment:
+      CONSUMER_ID: "5"
+  consumer6:
+    build:
+      context: .
+    command: python consumer.py
+    environment:
+      CONSUMER_ID: "6"
+  
+  celery-worker-email:
+    build:
+      context: .
+    command: celery -A utils.celery_conf:celery_app worker --queues=email_campaigns -c 4 -l INFO
+    depends_on:
+      - redis
+  
+  celery-worker-subs:
+    build:
+      context: .
+    command: celery -A utils.celery_conf:celery_app worker --queues=subscriptions_updates -c 2 -l INFO
+    depends_on:
+      - redis
+  
+  celery-beat:
+    build:
+      context: .
+    command: celery -A utils.celery_conf:celery_app beat -l INFO
+    depends_on:
+      - redis
+  
+
 networks:
   web_app:
 

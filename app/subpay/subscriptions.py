@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from database.session import get_db
+from database.session import get_db, get_db2
 from database.models import UserOrm, SubscriptionOrm
 from auth.dependencies import get_current_user
 from datetime import datetime, timedelta
@@ -117,24 +117,25 @@ async def get_sub(current_user: UserOrm = Depends(get_current_user), db: AsyncSe
 
     return {"plan": plans[subscription.plan], "start_date": subscription.start_date, "end_date": subscription.end_date}
 
-@celery_app.task
+@celery_app.task(bind=True)
 def update_subscription_status_task():
-    asyncio.run(async_update_subscription_status)
+    asyncio.run(async_update_subscription_status())
 
-async def async_update_subscription_status(db: AsyncSession = Depends(get_db)):
-    try:
-        stmt = select(SubscriptionOrm).where(
-            SubscriptionOrm.status == "active",
-            SubscriptionOrm.end_date <= datetime.utcnow()
-        )
-        result = await db.execute(stmt)
-        expired_subs = result.scalars().all()
+async def async_update_subscription_status(db: AsyncSession):
+    async with get_db2() as db:
+        try:
+            stmt = select(SubscriptionOrm).where(
+                SubscriptionOrm.status == "active",
+                SubscriptionOrm.end_date <= datetime.utcnow()
+            )
+            result = await db.execute(stmt)
+            expired_subs = result.scalars().all()
 
-        if expired_subs:
-            for sub in expired_subs:
-                sub.status = "inactive"
-        
-        await db.commit()
+            if expired_subs:
+                for sub in expired_subs:
+                    sub.status = "inactive"
 
-    except Exception as e:
-        print(f"error while updating")
+                await db.commit()
+
+        except Exception as e:
+            print(f"Error while updating: {e}")

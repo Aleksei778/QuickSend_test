@@ -38,7 +38,7 @@ oauth.register(
     access_token_url='https://accounts.google.com/o/oauth2/token',
     access_token_params=None,
     client_kwargs={
-        'scope': 'email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.metadata.readonly',
+        'scope': 'email profile https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/spreadsheets.readonly',
         'redirect_uri': f'{BASE_URL}/api/v1/oauth2callback' 
     },
     server_metadata_url=CONF_URL

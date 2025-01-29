@@ -6,6 +6,7 @@ import logging
 from utils.send_emails_kafka import mass_email_campaign
 import asyncio
 from datetime import datetime
+from celery.schedules import crontab
 
 # Настройка базового логирования
 logging.basicConfig(
@@ -17,6 +18,7 @@ logger = get_task_logger(__name__)
 
 # Создаем Exchange
 email_campaigns_exchange = Exchange('email_campaigns', type='direct')
+subs_campaigns_exchange = Exchange('subscriptions_updates', type='direct')
 
 # Создаем очередь с привязкой к Exchange
 email_campaigns_queue = Queue(
@@ -24,28 +26,32 @@ email_campaigns_queue = Queue(
     exchange=email_campaigns_exchange,
     routing_key='email_campaigns'
 )
+subs_campaigns_queue = Queue(
+    'subscriptions_updates',
+    exchange=subs_campaigns_exchange,
+    routing_key='subscriptions_updates'
+)
 
 celery_app = Celery(
-    'email_campaigns',
     broker='redis://localhost:6379/0',
     backend='redis://localhost:6379/0'
+)
+
+celery_app.conf.imports = (
+    'utils.celery_conf',
+    'subpay.subscriptions'
 )
 
 # Базовые настройки
 celery_app.conf.update(
     # Очереди
-    task_queues=(email_campaigns_queue,),
+    task_queues=(email_campaigns_queue, subs_campaigns_queue),
     task_routes={
         'utils.celery_conf.send_campaign': {'queue': 'email_campaigns'},
-        'utils.celery_conf.test_task': {'queue': 'email_campaigns'},
-        'utils.celery_conf.add': {'queue': 'default'},
+        'subpay.subscriptions.update_subscription_status_task': {'queue': 'subscriptions_updates'}
     },
     
     task_track_started=True,
-
-    # Настройки воркера
-    worker_prefetch_multiplier=1,
-    worker_concurrency=2,  # Установите в соответствии с вашими потребностями
     
     # Настройки задач
     timezone='UTC',  # Установите ваш часовой пояс
@@ -60,8 +66,13 @@ celery_app.conf.update(
     task_max_retries=3,
 )
 
-# Регистрация задач
-# celery_app.autodiscover_tasks(['tasks'])
+celery_app.conf.beat_schedule = {
+    'check-subscriptions-daily': {
+        'task': 'subpay.subscriptions.update_subscription_status_task',
+        'schedule': crontab(hour=0, minute=0),  # Выполнять каждый день в 00:00
+        'options': {'queue': 'subscriptions_updates'}
+    }
+}
 
 # Функция для проверки подключения
 @celery_app.task(name='test_connection')
