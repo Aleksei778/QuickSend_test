@@ -1,16 +1,13 @@
 # ---- ИМПОРТЫ ----
 import sys
 import os
-import mimetypes
-from fastapi import Form
 from typing import List
-import json
 
 # Добавляем корневую директорию проекта в PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, APIRouter, Response
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, APIRouter, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from send_router import send_router
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,25 +18,26 @@ import os
 import uvicorn
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
-from fastapi_cache.decorator import cache
-from starlette.middleware.sessions import SessionMiddleware
-from config import SESSION_SECRET_KEY
+from app.config import SESSION_SECRET_KEY
 from confluent_kafka.admin import AdminClient, NewTopic
 from confluent_kafka import KafkaException
 from auth.google_auth import auth_router
-from subpay.payments import payment_router
 from subpay.subscriptions import subscription_router
-from fastapi.templating import Jinja2Templates
-from auth.dependencies import get_current_user
-from database.models import UserOrm
 from utils.google_sheets import sheets_router
-from fastapi import File, UploadFile
+from subpay.yookassa import payment_router
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_fastapi_instrumentator import Instrumentator
-import time
-import ssl
-import certifi
+from datetime import datetime
+from elasticsearch import Elasticsearch
+from datetime import datetime
+import logging
+from starlette.middleware.sessions import SessionMiddleware
 # ---- ВСЕ НАСТРОЙКИ ПРИЛОЖЕНИЯ ----
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Инициализация REDIS
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,7 +55,7 @@ app = FastAPI(lifespan=lifespan)
 KAFKA_TOPIC = "emailsss"
 KAFKA_BOOTSTRAP_SERVERS = 'localhost:9093, localhost:9095' # External listeners
 KAFKA_SECURITY_PROTOCOL = "SASL_SSL"
-NUM_PARTITIONS = 2
+NUM_PARTITIONS = 6
 REPLICATION_FACTOR = 2
 
 def create_kafka_topic():
@@ -84,6 +82,7 @@ def create_kafka_topic():
 origins = [
     "http://127.0.0.1:8000",
     "chrome-extension://fekaiggohacnhgaleajohgpipbmbiaca",
+    "https://f069-78-30-229-174.ngrok-free.app",
     "https://mail.google.com"
     # "https://my_domen.com"
 ]
@@ -97,13 +96,45 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Set-Cookie", "Access-Control-Allow-Headers", "Authorization", "Access-Control-Allow-Origins", "accept"],
 )
-# для сессий
+
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+
+es = Elasticsearch(
+    "http://localhost:9200",
+    headers={"Content-Type": "application/json"}
+)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = datetime.utcnow()
+    response = await call_next(request)
+    end_time = datetime.utcnow()
+    
+    log_data = {
+        "timestamp": start_time.isoformat(),
+        "method": request.method,
+        "path": request.url.path,
+        "status_code": response.status_code,
+        "duration_ms": (end_time - start_time).total_seconds() * 1000
+    }
+    
+    # Отправка логов в Elasticsearch, используем body вместо document
+    try:
+        es.index(
+            index="fastapi-logs",
+            body=log_data,  # Заменили document на body
+            headers={"Content-Type": "application/json"}
+        )
+        logger.info(f"Log successfully sent to Elasticsearch: {log_data}")
+    except Exception as e:
+        logger.error(f"Failed to send logs to Elasticsearch: {e}")
+    
+    return response
 
 api_router = APIRouter(prefix="/api/v1")
 
 # Обновленный путь к директории с фронтендом
-frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "site-front3"))
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "site-front4"))
 html_dir = os.path.join(frontend_dir, "html")
 css_dir = os.path.join(frontend_dir, "styles")
 png_dir = os.path.join(frontend_dir, "png")
@@ -127,6 +158,38 @@ async def read_index():
 @app.get("/profile")
 async def read_profile():
     index_path = os.path.join(html_dir, "profile.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return {"error": f"File not found: {index_path}"}
+    
+@app.get("/faq")
+async def read_faq():
+    index_path = os.path.join(html_dir, "faq.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return {"error": f"File not found: {index_path}"}
+
+@app.get("/pricing")
+async def read_pricing():
+    index_path = os.path.join(html_dir, "pricing.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return {"error": f"File not found: {index_path}"}
+
+@app.get("/privacy_policy")
+async def read_privpolicy():
+    index_path = os.path.join(html_dir, "privacy_policy.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return {"error": f"File not found: {index_path}"}
+
+@app.get("/terms_of_use")
+async def read_terms():
+    index_path = os.path.join(html_dir, "terms_of_use.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     else:

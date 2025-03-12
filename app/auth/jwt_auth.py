@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from jose import jwt, JWTError
-from config import (
+from app.config import (
     JWT_ACCESS_SECRET_FOR_AUTH, 
     JWT_ALGORITHM, 
     JWT_REFRESH_SECRET_FOR_AUTH

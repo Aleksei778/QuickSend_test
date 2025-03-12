@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import os, sys
 from datetime import date, datetime
 from sqlalchemy import Date
-from app.subpay.plans import plans
+from subpay.plans import plans
+from datetime import timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database.models import UserOrm, CampaignOrm, PaymentOrm, SubscriptionOrm, TokenOrm
+from database.models import UserOrm, CampaignOrm, PaymentOrm, SubscriptionOrm, TokenOrm, PaypalPlansOrm
 
 class DBManager:
     def __init__(self, session: AsyncSession):
@@ -48,6 +49,22 @@ class DBManager:
         await self.session.commit()
         return new_user
     
+    async def create_sub(self, id, plan, period, status, is_trial):
+        sub = SubscriptionOrm(
+            user_id=id,
+            plan=plan,
+            status=status,
+            start_date=datetime.utcnow(),
+            end_date=datetime.utcnow() + timedelta(days=period),
+            is_trial=is_trial
+        )
+
+        self.session.add(sub)
+        await self.session.commit()
+        await self.session.refresh(sub)
+
+        return sub
+
     async def create_token(self, user_id, access_token, refresh_token, token_type, expires_in, expires_at, scope) -> TokenOrm:
         new_token = TokenOrm(
             user_id=user_id,
@@ -64,6 +81,20 @@ class DBManager:
         await self.session.commit()
         return new_token
 
+    async def create_paypal_plan(self, plan_id, status, name, period, plan) -> PaypalPlansOrm:
+        new_plan = PaypalPlansOrm(
+            plan_id=plan_id,
+            status=status,
+            name=name,
+            period=period,
+            plan=plan
+        )
+
+        self.session.add(new_plan)
+        await self.session.flush()
+        await self.session.commit()
+        return new_plan
+
     async def get_all_campaigns(self, user_id: str) -> CampaignOrm:
         result = await self.session.execute(
             select(CampaignOrm).where(CampaignOrm.user_id == user_id)
@@ -78,6 +109,15 @@ class DBManager:
 
         return result.scalar_one_or_none()
     
+    async def get_paypal_plan(self, plan: str, period: str) -> PaypalPlansOrm:
+        result = await self.session.execute(
+            select(PaypalPlansOrm)
+            .where(PaypalPlansOrm.plan == plan)
+            .where(PaypalPlansOrm.period == period)
+        )
+
+        return result.scalar_one_or_none()
+
     async def get_token(self, user_id: str) -> TokenOrm:
         result = await self.session.execute(
             select(TokenOrm).where(TokenOrm.user_id == user_id)
@@ -124,6 +164,13 @@ class DBManager:
         print(subscription)
         return subscription
 
+    async def has_used_trial(self, id):
+        stmt = select(SubscriptionOrm).where(SubscriptionOrm.user_id == id, SubscriptionOrm.is_trial == True)
+        result = await self.session.execute(stmt)
+        existing_trial = result.scalar_one_or_none()
+
+        return existing_trial
+
     async def can_send_emails(self, user: UserOrm, cur_recipients_count: int) -> tuple[bool, str]:
         print("нет ошибки1")
         subs = await self.get_user_subs(user.id)
@@ -145,7 +192,11 @@ class DBManager:
         prev_recipients_count = await self.get_all_recipients_in_campaigns_by_date(user.id, today)
         print("нет ошибки4")
         print(prev_recipients_count + cur_recipients_count)
-        if (prev_recipients_count + cur_recipients_count > 3 and active_sub_plan == "free_trial"):
-            return False, "Recipient limit exceeded"
+        
+        if (prev_recipients_count + cur_recipients_count > 50 and active_sub_plan == "free_trial"):
+            return False, "Recipient limit per day exceeded in trial plan"
+
+        if (prev_recipients_count + cur_recipients_count > 500 and active_sub_plan == "standart"):
+            return False, "Recipient limit per day exceeded in standart plan"
 
         return True, "Active sub"

@@ -20,13 +20,13 @@ async def create_payment(subscription_id: int, current_user: UserOrm = Depends(g
         raise HTTPException(status_code=400, detail="Subscription bot found")
     
     # определяем цену
-    amount = 1500.00 if subscription.plan == "basic" else 2500.00
+    amount = 11.50 if subscription.plan == "basic" else 19.99
 
     # Создаем новый платеж
     new_payment = PaymentOrm(
         subscription_id=subscription_id,
         amount=amount,
-        currency="RUB",
+        currency="USD",
         status="pending",
         payment_method="credit_card",
         transaction_id=str(uuid.uuid4())

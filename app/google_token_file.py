@@ -4,7 +4,7 @@ import time
 import httpx
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 from .database.models import UserOrm, TokenOrm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -39,7 +39,7 @@ async def refresh_access_token(token: TokenOrm, db: AsyncSession):
             response.raise_for_status()  # Raise exception for bad status codes
             new_token_data = response.json()
 
-        print('НЕТ ОШИБКИ ВТОРОЙ  2')    
+        print('НЕТ ОШИБКИ ВТОРОЙ  2')  
         # Update token in database using SQLAlchemy async pattern
         stmt = (
             update(TokenOrm)

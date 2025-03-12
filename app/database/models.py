@@ -49,11 +49,14 @@ class SubscriptionOrm(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     plan = Column(String) # "free_trial", "basic", "premium"
-    status = Column(String) # "active", "inactive"
+    status = Column(String) # "active", "inactive", "not paid"
     start_date = Column(Date, nullable=False, default=datetime.utcnow)
     end_date = Column(Date, nullable=False)
     is_trial = Column(Boolean, default=False)
     
+    provider = Column(String) # "paypal", "yookassa"
+    provider_sub_id = Column(String, unique=True)
+
     user_id = Column(Integer, ForeignKey('users.id'))
 
     user = relationship("UserOrm", back_populates="subscriptions")
@@ -87,3 +90,13 @@ class TokenOrm(Base):
     scope = Column(String, nullable=False)
 
     user = relationship("UserOrm", back_populates="token")
+
+class PaypalPlansOrm(Base):
+    __tablename__ = "paypal_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan_id = Column(String, index=True, nullable=False)
+    status = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    period = Column(String, nullable=False)
+    plan = Column(String, nullable=False)

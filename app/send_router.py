@@ -13,7 +13,7 @@ from typing import List
 import json
 from utils.send_emails_kafka import prepare_attachment_for_gmail
 import redis
-from utils.celery_conf import send_campaign, add, test_task
+from celery_conf import send_campaign, add, test_task
 from pytz import timezone
 
 # --- MOSCOW TIMEZONE ---
@@ -106,7 +106,7 @@ async def run_campaign2(
             user_id=current_user.id
         )
         return JSONResponse({
-            "message": f"Кампания запланирована на {scheduled_datetime}",
+            "message": f"Кампания запланирована на {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}",
             "task_id": task.id
         })
     else:
@@ -118,7 +118,7 @@ async def run_campaign2(
             attachments=prep_attachments,
             sender_name=sender_name
         )
-        print(f"Рассылка начата в {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.")
+        print(f"Рассылка начата в {datetime.now().strftime('%Y-%m-%d %H:%M')}.")
         
         await db_manager.create_campaing(
             sender_name=sender_name,
@@ -129,7 +129,7 @@ async def run_campaign2(
             user_id=current_user.id
         )
         return JSONResponse({
-            "message": f"Кампания запущена в {datetime.now()}",
+            "message": f"Кампания запущена в {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         })
 
 # --- ЗАПУСК РАССЫЛКИ
@@ -249,6 +249,8 @@ async def get_all_campaigns(request: Request, current_user = Depends(get_current
     campaings = await db_manager.get_all_campaigns(user_id=current_user.id)
     
     new_campaigns = []
+    total_recipients = 0
+    
     for camp in campaings:
         new_camp = {}
         
@@ -256,6 +258,8 @@ async def get_all_campaigns(request: Request, current_user = Depends(get_current
         attachment_files_list = camp.attachment_files.split(",")
         date_str = camp.campaign_time.date().isoformat()
         recipients_cnt = len(recipients_list)
+
+        total_recipients += recipients_cnt
 
         new_camp["name"] = camp.subject
         new_camp["date"] = date_str

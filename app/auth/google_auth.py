@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.session import get_db
 from authlib.integrations.starlette_client import OAuth
-from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 from sqlalchemy.future import select
 from datetime import datetime, timedelta
 import uuid
@@ -21,7 +21,8 @@ import jwt
 from database.db_manager import DBManager
 from .dependencies import get_current_user
 from app.google_token_file import refresh_access_token, is_token_expired
-from config import BASE_URL
+from app.config import BASE_URL
+from fastapi_cache.decorator import cache
 
 # --- РОУТЕР АВТОРИЗАЦИИ ---
 auth_router = APIRouter()
@@ -59,7 +60,7 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
 
     if not token_data:
         return RedirectResponse(url='/error')
-
+    print("НЕТ ОШИБКИ")
     db_manager = DBManager(session=db)
 
     # Используем токен для запроса информации о пользователе

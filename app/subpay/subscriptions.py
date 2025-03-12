@@ -5,7 +5,7 @@ from database.session import get_db, get_db2
 from database.models import UserOrm, SubscriptionOrm
 from auth.dependencies import get_current_user
 from datetime import datetime, timedelta
-from utils.celery_conf import celery_app
+from celery_conf import celery_app
 import asyncio
 from database.db_manager import DBManager
 
@@ -13,75 +13,68 @@ from database.db_manager import DBManager
 subscription_router = APIRouter()
 
 # --- КОНСТАНТА ПЕРИОДА БЕСПЛАТНОГО ПОЛЬЗОВАНИЯ ---
-TRIAL_DAYS = 14 
+TRIAL_DAYS = 7
 
 # --- НАЧАЛО ПРОБНОГО ПЕРИОДА ---
 @subscription_router.post("/start_trial")
 async def start_trial(current_user: UserOrm = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    stmt = select(SubscriptionOrm).where(SubscriptionOrm.user_id == current_user.id, SubscriptionOrm.is_trial == True)
-    result = await db.execute(stmt)
-    existing_trial = result.scalar_one_or_none()
+    db_manager = DBManager(session=db)
+
+    existing_trial = await db_manager.has_used_trial(current_user.id)
 
     if existing_trial:
         print("existing_trial")
         raise HTTPException(status_code=400, detail="You have already used your free trial")
 
     # создаем пробную подписку
-    trial_sub = SubscriptionOrm(
-        user_id=current_user.id,
-        plan="free_trial",
-        status="active",
-        start_date=datetime.utcnow(),
-        end_date=datetime.utcnow() + timedelta(days=TRIAL_DAYS),
-        is_trial=True
-    )
-
-    db.add(trial_sub)
-    await db.commit()
-    await db.refresh(trial_sub)
+    trial_sub = await db_manager.create_sub(id=current_user.id, plan="free_trial", period=TRIAL_DAYS, is_trial=True)
 
     return {"message": f"Free trial started. It will end on {trial_sub.end_date}"}
 
+@subscription_router.get("/has_already_use_trial")
+async def start_trial(current_user: UserOrm = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    db_manager = DBManager(session=db)
+
+    existing_trial = await db_manager.has_used_trial(current_user.id)
+
+    if existing_trial:
+        return {"message": "Yes"}
+
+    return {"message": "No"}
+
+
 # --- ПОДПИСКА ---
-@subscription_router.post("/subscribe/{plan}/{period}")
-async def subscribe(plan: str, period: str, current_user: UserOrm = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    if plan not in ["basic", "premium"]:
-        print("Invalid subscription plan")
-        raise HTTPException(status_code=400, detail="Invalid subscription plan")
+async def subscribe(email: str, plan: str, period: str, current_user: UserOrm, db: AsyncSession):
+    db_manager = DBManager(session=db)
     
-    if period not in ["month", "three_months", "year"]:
+    if plan not in ["standart", "premium"]:
+        print("Invalid subscription plan")
+        return (False, "invalid sub plan")
+
+    if period not in ["month", "year"]:
         print("Invalid subscription period")
-        raise HTTPException(status_code=400, detail="Invalid subscription period")
+        return (False, "invalid sub period")
 
+    sub_user = await db_manager.get_user_by_email(email)
+
+    if not sub_user:
+        print("there is no such user")
+        return (False, "there is no such user")
+    
     # Проверяем, есть ли уже активная подписка
-    stmt = select(SubscriptionOrm).where(SubscriptionOrm.user_id == current_user.id, SubscriptionOrm.status == "active", SubscriptionOrm.end_date > datetime.utcnow())
-    result = await db.execute(stmt)
-    active_sub = result.scalar_one_or_none()
+    active_sub = await db_manager.get_active_sub(sub_user.id)
 
-    if active_sub:
-        print("You have already had your subscription")
-        raise HTTPException(status_code=400, detail="You have already had your subscription")
+    if (active_sub.plan == "standart" and plan != "premium") or (active_sub.plan == "premium"):
+        return (False, f"have already had sub, end_date={active_sub.end_date}")
     
     periods = {
         "month": 30,
-        "three_months": 90,
         "year": 365
     }
+    
+    new_subscription = await db_manager.create_sub(id=sub_user.id, plan=plan, period=periods[period], status="created", is_trial=False)
 
-    new_subscription = SubscriptionOrm(
-        user_id=current_user.id,
-        plan=plan,
-        status="active",
-        start_date=datetime.utcnow(),
-        end_date=datetime.utcnow() + timedelta(days=periods[period]),
-        is_trial=False
-    )
-
-    db.add(new_subscription)
-    await db.commit()
-    await db.refresh(new_subscription)
-
-    return {"message": f"Successfully subscribed to {plan} plan"}
+    return (True, new_subscription)
 
 @subscription_router.post("/unsubscribe")
 async def unsubscribe(current_user: UserOrm = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -111,7 +104,7 @@ async def get_sub(current_user: UserOrm = Depends(get_current_user), db: AsyncSe
     
     plans = {
         "free_trial": "Free Trial Plan",
-        "basic": "Basic Plan",
+        "standart": "Standart Plan",
         "premium": "Premium Plan"
     }
 
