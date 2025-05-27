@@ -17,6 +17,11 @@ SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY")
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM")
 BASE_URL = os.environ.get("BASE_URL")
 
+KAFKA_USER = os.environ.get("KAFKA_CLIENT_USERS")
+KAFKA_PASSWORD = os.environ.get("KAFKA_CLIENT_PASSWORDS")
+print(KAFKA_USER, KAFKA_PASSWORD)
+KEYSTORE_PASSWORD = os.environ.get("KEYSTORE_PASSWORD")
+
 TINKOFF_TERMINAL_KEY = os.environ.get("TINKOFF_TERMINAL_KEY")
 TINKOFF_SECRET_KEY = os.environ.get("TINKOFF_SECRET_KEY")
 
@@ -26,5 +31,18 @@ PAYPAL_WEBHOOK_ID = os.environ.get("PAYPAL_WEBHOOK_ID")
 
 YOOKASSA_SHOP_ID = os.environ.get("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.environ.get("YOOKASSA_SECRET_KEY")
+
+PATH_FOR_SSL = os.environ.get("PATH_FOR_SSL")
+
+KAFKA_CONFIG = {
+    'bootstrap.servers': 'localhost:9093',
+    'security.protocol': 'SASL_SSL',
+    'sasl.mechanism': 'PLAIN',
+    'sasl.username': 'user1',
+    'sasl.password': 'password1',
+    'ssl.ca.location': 'C:/kafka-ssl/ca-cert.cer',  # Путь к CA-сертификату
+    'ssl.certificate.location': 'C:/kafka-ssl/kafka-signed.cer',  # Клиентский сертификат
+    'ssl.key.password': 'kafka123',  # Пароль для ключа (если зашифрован)
+}
 
 # DB_PORT = int(DB_PORT_NOT_INT)

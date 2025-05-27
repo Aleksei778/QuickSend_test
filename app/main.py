@@ -18,7 +18,7 @@ import os
 import uvicorn
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
-from app.config import SESSION_SECRET_KEY
+from app.config import SESSION_SECRET_KEY, KAFKA_CONFIG
 from confluent_kafka.admin import AdminClient, NewTopic
 from confluent_kafka import KafkaException
 from auth.google_auth import auth_router
@@ -53,13 +53,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 KAFKA_TOPIC = "emailsss"
-KAFKA_BOOTSTRAP_SERVERS = 'localhost:9093, localhost:9095' # External listeners
-KAFKA_SECURITY_PROTOCOL = "SASL_SSL"
 NUM_PARTITIONS = 6
 REPLICATION_FACTOR = 2
 
 def create_kafka_topic():
-    admin_client = AdminClient({'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS, 'security.protocol': KAFKA_SECURITY_PROTOCOL, "sasl.mechanism": 'PLAIN', "sasl.username": 'user1', "sasl.password": 'password1'})
+    admin_client = AdminClient(KAFKA_CONFIG)
     try:
         # Ensure NUM_PARTITIONS and REPLICATION_FACTOR are integers
         num_partitions = int(NUM_PARTITIONS)

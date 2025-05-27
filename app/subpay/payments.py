@@ -17,7 +17,7 @@ async def create_payment(subscription_id: int, current_user: UserOrm = Depends(g
     subscription = result.scalar_one_or_none()
 
     if not subscription:
-        raise HTTPException(status_code=400, detail="Subscription bot found")
+        raise HTTPException(status_code=400, detail="Subscription not found")
     
     # определяем цену
     amount = 11.50 if subscription.plan == "basic" else 19.99

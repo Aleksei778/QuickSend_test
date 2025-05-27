@@ -21,16 +21,12 @@ from email.encoders import encode_base64
 # from schemas.campaing_schema import EmailData, Attachment
 from fastapi import UploadFile
 import ssl
+from app.config import KAFKA_CONFIG
 
-ca_cert_path = os.path.join(os.path.dirname(__file__), 'C:\\Users\\aleks\\OneDrive\\Рабочий\\FastAPI_quicksend2', '_certs', 'ca.crt')
+ca_cert_path = os.path.join("C://kafka-ssl", "ca-cert.pem")
 print(f"CERT: {ca_cert_path}")
 
 KAFKA_TOPIC = "emailsss"
-KAFKA_BOOTSTRAP_SERVERS = 'localhost:9093, localhost:9095' # External listeners
-KAFKA_SECURITY_PROTOCOL = "SASL_SSL"
-KAFKA_SASL_MECHANISM = "PLAIN"
-KAFKA_USERNAME = "user1"
-KAFKA_PASSWORD = "password1"
 
 # для Gmail API
 SCOPES = [
@@ -66,15 +62,15 @@ logger = setup_logging()
 async def get_kafka_producer():
     print("hello get_kafka_producer")
     producer = AIOKafkaProducer(
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-        security_protocol=KAFKA_SECURITY_PROTOCOL,
+        bootstrap_servers=KAFKA_CONFIG['bootstrap.servers'],
+        security_protocol=KAFKA_CONFIG['security.protocol'],
+        sasl_mechanism=KAFKA_CONFIG['sasl.mechanism'],
+        sasl_plain_username=KAFKA_CONFIG['sasl.username'],
+        sasl_plain_password=KAFKA_CONFIG['sasl.password'],
         ssl_context=ssl.create_default_context(cafile=ca_cert_path),
-        sasl_mechanism=KAFKA_SASL_MECHANISM,
-        sasl_plain_username=KAFKA_USERNAME,
-        sasl_plain_password=KAFKA_PASSWORD,
-        max_request_size=31457280,
-        compression_type='gzip',
-        request_timeout_ms=60000
+        max_request_size=KAFKA_CONFIG['max.request.size'],
+        compression_type=KAFKA_CONFIG['compression.type'],
+        request_timeout_ms=KAFKA_CONFIG['request.timeout.ms']
     )
     await producer.start()
     return producer

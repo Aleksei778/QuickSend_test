@@ -36,11 +36,15 @@ services:
       - KAFKA_CLIENT_USERS=user1
       - KAFKA_CLIENT_PASSWORDS=password1
       # SSL настройки
-      - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.jks
+      - KAFKA_CFG_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin-password";
+      - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.p12
+      - KAFKA_CFG_SSL_KEYSTORE_TYPE=PKCS12
       - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
       - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
+      - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.p12
+      - KAFKA_CFG_SSL_TRUSTSTORE_TYPE=PKCS12
       - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
+      - ALLOW_PLAINTEXT_LISTENER=no
       # Настройки производительности
       - KAFKA_CFG_NUM_PARTITIONS=6       # Увеличено с 3 до 12 (минимум 6 для 6 консумеров, лучше с запасом)
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
@@ -58,7 +62,7 @@ services:
       # Мониторинг
       - KAFKA_CFG_METRIC_REPORTERS=org.apache.kafka.common.metrics.JmxReporter
     volumes:
-      - ./certs:/opt/bitnami/kafka/config/certs
+      - C:/kafka-ssl:/opt/bitnami/kafka/config/certs
     networks:
       - kafka_network
     depends_on:
@@ -85,12 +89,16 @@ services:
       - KAFKA_CLIENT_USERS=user1
       - KAFKA_CLIENT_PASSWORDS=password1
       # SSL настройки
-      - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.jks
+      - KAFKA_CFG_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin-password";
+      - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.p12
+      - KAFKA_CFG_SSL_KEYSTORE_TYPE=PKCS12
       - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
       - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.jks
+      - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.p12
+      - KAFKA_CFG_SSL_TRUSTSTORE_TYPE=PKCS12
       - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
-      # Настройки производительности
+      - ALLOW_PLAINTEXT_LISTENER=no
+    #  - KAFKA_OPTS="-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
       - KAFKA_CFG_NUM_PARTITIONS=6       # Увеличено с 3 до 12 (минимум 6 для 6 консумеров, лучше с запасом)
       - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
       - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
@@ -107,7 +115,7 @@ services:
       # Мониторинг
       - KAFKA_CFG_METRIC_REPORTERS=org.apache.kafka.common.metrics.JmxReporter
     volumes:
-      - ./certs:/opt/bitnami/kafka/config/certs
+      - C:/kafka-ssl:/opt/bitnami/kafka/config/certs
     networks:
       - kafka_network
     depends_on:

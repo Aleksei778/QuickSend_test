@@ -18,15 +18,11 @@ import json
 from app.database.session import get_db2
 from sqlalchemy.future import select
 import ssl
+from app.config import KAFKA_CONFIG
 
-ca_cert_path = os.path.join(os.path.dirname(__file__), 'C:\\Users\\aleks\\OneDrive\\Рабочий\\FastAPI_quicksend2', '_certs', 'ca.crt')
+ca_cert_path = os.path.join("C://kafka-ssl", "ca-cert.pem")
 
 KAFKA_TOPIC = "emailsss"
-KAFKA_BOOTSTRAP_SERVERS = 'localhost:9093, localhost:9095' # External listeners
-KAFKA_SECURITY_PROTOCOL = "SASL_SSL"
-KAFKA_SASL_MECHANISM = "PLAIN"
-KAFKA_USERNAME = "user1"
-KAFKA_PASSWORD = "password1"
 
 # Логирование
 logger = logging.getLogger(__name__)
@@ -34,13 +30,13 @@ logger = logging.getLogger(__name__)
 async def process_kafka_messages():
     consumer = AIOKafkaConsumer(
         KAFKA_TOPIC,
-        bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+        bootstrap_servers=KAFKA_CONFIG['bootstrap.services'],
         group_id="email_sender_group",
-        security_protocol=KAFKA_SECURITY_PROTOCOL,
+        security_protocol=KAFKA_CONFIG['security.protocol'],
         ssl_context=ssl.create_default_context(cafile=ca_cert_path),
-        sasl_mechanism=KAFKA_SASL_MECHANISM,
-        sasl_plain_username=KAFKA_USERNAME,
-        sasl_plain_password=KAFKA_PASSWORD,
+        sasl_mechanism=KAFKA_CONFIG["sasl.mechanism"],
+        sasl_plain_username=KAFKA_CONFIG["sasl.username"],
+        sasl_plain_password=KAFKA_CONFIG["sasl.password"],
         enable_auto_commit=False,
         auto_offset_reset="earliest"
     )
