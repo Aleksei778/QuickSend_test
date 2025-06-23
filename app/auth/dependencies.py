@@ -1,11 +1,12 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
-from .jwt_auth import verify_token
+from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from database.session import get_db
-from database.models import UserOrm
-from fastapi_cache.decorator import cache
+
+from ..database.session import get_db
+from ..database.models import UserOrm
+from .jwt_auth import verify_token
 
 security = HTTPBearer()
 

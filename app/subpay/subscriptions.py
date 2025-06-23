@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from database.session import get_db, get_db2
-from database.models import UserOrm, SubscriptionOrm
-from auth.dependencies import get_current_user
-from datetime import datetime, timedelta
-from celery_conf import celery_app
+from datetime import datetime
+from app.celery_conf import celery_app
 import asyncio
-from database.db_manager import DBManager
+
+from ..database.db_manager import DBManager
+from ..database.session import get_db, get_db2
+from ..database.models import UserOrm, SubscriptionOrm
+from ..auth.dependencies import get_current_user
 
 # --- РОУТЕР ПОДПИСОК ---
 subscription_router = APIRouter()

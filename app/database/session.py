@@ -1,12 +1,7 @@
-import sys
-import os
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from .db import engine
 from contextlib import asynccontextmanager
+
+from .db import engine
 
 SessionLocal = async_sessionmaker(autocommit = False, autoflush=False, bind=engine, class_=AsyncSession)
 

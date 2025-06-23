@@ -1,125 +1,172 @@
-version: '3.8'
 services:
-  zookeeper:
-    image: 'docker.io/bitnami/zookeeper:latest'
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      - ZOO_ENABLE_AUTH=yes
-      - ZOO_SERVER_USERS=kafka
-      - ZOO_SERVER_PASSWORDS=kafka_password
+  backend:
+    build:
+      context: .
+      dockerfile: docker/main/Dockerfile
+    container_name: backend
+    env_file:
+      - .env
     volumes:
-      - zookeeper_data:/bitnami/zookeeper
+      - ./app:/app
+      - ./site-front4:/site-front4
+      - ./certs:/app/certs:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - kafka1
+      - kafka2
+      - redis
     networks:
-      - kafka_network
-    restart: always
+      - web_app
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./site-front4:/var/www/static
+    depends_on:
+      - backend
+    networks:
+      - web_app
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_PROD_NAME}
+      - POSTGRES_USER=${DB_PROD_USER}
+      - POSTGRES_PASSWORD=${DB_PROD_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - web_app
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U your_user -d your_db_name" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - web_app
 
   kafka1:
-    image: 'docker.io/bitnami/kafka:latest'
+    image: bitnami/kafka:3.6.1
     container_name: kafka1
     ports:
-      - "9092:9092"
-      - "9093:9093"
+      - "9092:9092"  # INTERNAL (SASL_PLAINTEXT)
+      - "9093:9093"  # EXTERNAL (SASL_SSL)
+      - "9101:9101"  # CONTROLLER (PLAINTEXT)
     environment:
-      - KAFKA_ADVERTISED_HOST_NAME=kafka1
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_CFG_BROKER_ID=1
-      # Внешний листенер для клиентов
-      - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka1:9092,EXTERNAL://localhost:9093
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
-      # Безопасность
-      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
-      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_USERS=user1
-      - KAFKA_CLIENT_PASSWORDS=password1
-      # SSL настройки
-      - KAFKA_CFG_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin-password";
-      - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.p12
-      - KAFKA_CFG_SSL_KEYSTORE_TYPE=PKCS12
-      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.p12
-      - KAFKA_CFG_SSL_TRUSTSTORE_TYPE=PKCS12
-      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
-      - ALLOW_PLAINTEXT_LISTENER=no
-      # Настройки производительности
-      - KAFKA_CFG_NUM_PARTITIONS=6       # Увеличено с 3 до 12 (минимум 6 для 6 консумеров, лучше с запасом)
-      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
-      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false  # Изменено на true для автоматического создания топиков
-      - KAFKA_HEAP_OPTS=-Xmx4G -Xms4G
-      - KAFKA_CFG_LOG_RETENTION_HOURS=168
-      - KAFKA_CFG_MESSAGE_MAX_BYTES=31457280
-      - KAFKA_CFG_REPLICA_FETCH_MAX_BYTES=31457280
-      # Добавленные настройки для лучшей работы консумеров
-      - KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS=3000
-      - KAFKA_CFG_MAX_POLL_RECORDS=500
-      - KAFKA_CFG_MAX_POLL_INTERVAL_MS=300000
-      - KAFKA_CFG_OFFSETS_RETENTION_MINUTES=10080  # Хранение офсетов 7 дней
-      # Мониторинг
-      - KAFKA_CFG_METRIC_REPORTERS=org.apache.kafka.common.metrics.JmxReporter
+      # KRaft режим - основные настройки
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka1:9101,2@kafka2:9101"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+
+      # Listeners с аутентификацией
+      KAFKA_CFG_LISTENERS: "INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093,CONTROLLER://0.0.0.0:9101"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "INTERNAL://kafka1:9092,EXTERNAL://localhost:9093"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL,CONTROLLER:PLAINTEXT"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+
+      # SASL настройки
+      KAFKA_CFG_SASL_ENABLED_MECHANISMS: "PLAINTEXT"
+
+      # SSL автогенерация
+      KAFKA_TLS_TYPE: "PEM"
+      KAFKA_TLS_CLIENT_AUTH: "none"
+      KAFKA_CFG_SSL_KEYSTORE_TYPE: "PEM"
+      KAFKA_CFG_SSL_TRUSTSTORE_TYPE: "PEM"
+      KAFKA_CFG_SSL_KEYSTORE_LOCATION: "/opt/bitnami/kafka/config/certs/server-cert.pem"
+      KAFKA_CFG_SSL_KEYSTORE_KEY_LOCATION: "/opt/bitnami/kafka/config/certs/server-key.pem"
+      KAFKA_CFG_SSL_TRUSTSTORE_LOCATION: "/opt/bitnami/kafka/config/certs/ca-cert.pem"
+
+      # Cluster ID
+      KAFKA_KRAFT_CLUSTER_ID: "abcdefghijklmnopqrstuv"
+
+      # Основные настройки
+      KAFKA_CFG_NUM_PARTITIONS: "6"
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "2"
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: "1"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+
+      # Разрешаем plaintext для controller
+      ALLOW_PLAINTEXT_LISTENER: "yes"
     volumes:
-      - C:/kafka-ssl:/opt/bitnami/kafka/config/certs
+      - kafka1_data:/bitnami/kafka
+      - ./certs:/opt/bitnami/kafka/config/certs:ro
     networks:
-      - kafka_network
-    depends_on:
-      - zookeeper
+      - web_app
 
   kafka2:
-    image: 'docker.io/bitnami/kafka:latest'
+    image: bitnami/kafka:3.6.1
     container_name: kafka2
     ports:
-      - "9094:9094"
-      - "9095:9095"
+      - "9094:9094"  # INTERNAL (SASL_PLAINTEXT)
+      - "9095:9095"  # EXTERNAL (SASL_SSL)
+      - "9102:9102"  # CONTROLLER (PLAINTEXT)
     environment:
-      - KAFKA_ADVERTISED_HOST_NAME=kafka2
-      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_CFG_BROKER_ID=2
-      # Внешний листенер для клиентов
-      - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:9094,EXTERNAL://0.0.0.0:9095
-      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka2:9094,EXTERNAL://localhost:9095
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
-      # Безопасность
-      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
-      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
-      - KAFKA_CLIENT_USERS=user1
-      - KAFKA_CLIENT_PASSWORDS=password1
-      # SSL настройки
-      - KAFKA_CFG_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin-password";
-      - KAFKA_CFG_SSL_KEYSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.keystore.p12
-      - KAFKA_CFG_SSL_KEYSTORE_TYPE=PKCS12
-      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_KEY_PASSWORD=kafka123
-      - KAFKA_CFG_SSL_TRUSTSTORE_LOCATION=/opt/bitnami/kafka/config/certs/kafka.truststore.p12
-      - KAFKA_CFG_SSL_TRUSTSTORE_TYPE=PKCS12
-      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=kafka123
-      - ALLOW_PLAINTEXT_LISTENER=no
-    #  - KAFKA_OPTS="-Djava.security.auth.login.config=/etc/kafka/secrets/kafka_server_jaas.conf"
-      - KAFKA_CFG_NUM_PARTITIONS=6       # Увеличено с 3 до 12 (минимум 6 для 6 консумеров, лучше с запасом)
-      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=2
-      - KAFKA_CFG_MIN_INSYNC_REPLICAS=2
-      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false  # Изменено на true для автоматического создания топиков
-      - KAFKA_HEAP_OPTS=-Xmx4G -Xms4G
-      - KAFKA_CFG_LOG_RETENTION_HOURS=168
-      - KAFKA_CFG_MESSAGE_MAX_BYTES=31457280
-      - KAFKA_CFG_REPLICA_FETCH_MAX_BYTES=31457280
-      # Добавленные настройки для лучшей работы консумеров
-      - KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS=3000
-      - KAFKA_CFG_MAX_POLL_RECORDS=500
-      - KAFKA_CFG_MAX_POLL_INTERVAL_MS=300000
-      - KAFKA_CFG_OFFSETS_RETENTION_MINUTES=10080  # Хранение офсетов 7 дней
-      # Мониторинг
-      - KAFKA_CFG_METRIC_REPORTERS=org.apache.kafka.common.metrics.JmxReporter
+      # KRaft режим - основные настройки
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
+      KAFKA_CFG_NODE_ID: "2"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka1:9101,2@kafka2:9101"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+
+      # Listeners с аутентификацией
+      KAFKA_CFG_LISTENERS: "INTERNAL://0.0.0.0:9094,EXTERNAL://0.0.0.0:9095,CONTROLLER://0.0.0.0:9102"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "INTERNAL://kafka2:9094,EXTERNAL://localhost:9095"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:SASL_PLAINTEXT,EXTERNAL:SASL_SSL,CONTROLLER:PLAINTEXT"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+
+      # SASL настройки
+      KAFKA_CFG_SASL_ENABLED_MECHANISMS: "PLAINTEXT"
+
+      # SSL автогенерация
+      KAFKA_TLS_TYPE: "PEM"
+      KAFKA_TLS_CLIENT_AUTH: "none"
+      KAFKA_CFG_SSL_KEYSTORE_TYPE: "PEM"
+      KAFKA_CFG_SSL_TRUSTSTORE_TYPE: "PEM"
+      KAFKA_CFG_SSL_KEYSTORE_LOCATION: "/opt/bitnami/kafka/config/certs/server-cert.pem"
+      KAFKA_CFG_SSL_KEYSTORE_KEY_LOCATION: "/opt/bitnami/kafka/config/certs/server-key.pem"
+      KAFKA_CFG_SSL_TRUSTSTORE_LOCATION: "/opt/bitnami/kafka/config/certs/ca-cert.pem"
+
+      # Cluster ID
+      KAFKA_KRAFT_CLUSTER_ID: "abcdefghijklmnopqrstuv"
+
+      # Основные настройки
+      KAFKA_CFG_NUM_PARTITIONS: "6"
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "2"
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: "1"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+
+      # Разрешаем plaintext для controller
+      ALLOW_PLAINTEXT_LISTENER: "yes"
     volumes:
-      - C:/kafka-ssl:/opt/bitnami/kafka/config/certs
+      - kafka2_data:/bitnami/kafka
+      - ./certs:/opt/bitnami/kafka/config/certs:ro
     networks:
-      - kafka_network
-    depends_on:
-      - zookeeper
+      - web_app
 
   redis:
     image: 'redis:latest'
@@ -143,6 +190,8 @@ services:
       - '--web.console.libraries=/opt/bitnami/prometheus/conf/console_libraries'
       - '--web.console.templates=/opt/bitnami/prometheus/conf/consoles'
     restart: unless-stopped
+    networks:
+      - web_app
   
   grafana:
     image: 'docker.io/bitnami/grafana:latest'
@@ -161,7 +210,7 @@ services:
     restart: unless-stopped
 
   elasticsearch:
-    image:  elasticsearch:7.8.0
+    image: elasticsearch:7.8.0
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
@@ -170,6 +219,8 @@ services:
       - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - web_app
   
   logstash:
     image: logstash:7.8.0
@@ -179,6 +230,8 @@ services:
       - "5044:5044"
     depends_on:
       - elasticsearch
+    networks:
+      - web_app
     
   kibana:
     image: kibana:7.8.0
@@ -188,15 +241,142 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
       - elasticsearch
+    networks:
+      - web_app
 
+  consumer1:
+    build:
+      context: .
+      dockerfile: docker/consumer/Dockerfile
+    command: python consumer.py
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      CONSUMER_ID: "1"
+  consumer2:
+    build:
+      context: .
+      dockerfile: docker/consumer/Dockerfile
+    command: python consumer.py
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      CONSUMER_ID: "2"
+  consumer3:
+    build:
+      context: .
+      dockerfile: docker/consumer/Dockerfile
+    command: python consumer.py
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      CONSUMER_ID: "3"
+  consumer4:
+    build:
+      context: .
+      dockerfile: docker/consumer/Dockerfile
+    command: python consumer.py
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      CONSUMER_ID: "4"
+  consumer5:
+    build:
+      context: .
+      dockerfile: docker/consumer/Dockerfile
+    command: python consumer.py
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      CONSUMER_ID: "5"
+  consumer6:
+    build:
+      context: .
+      dockerfile: docker/consumer/Dockerfile
+    command: python consumer.py
+    env_file:
+      - .env
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      CONSUMER_ID: "6"
+
+  # Celery воркер для email кампаний
+  celery-worker-email:
+    build:
+      context: .
+      dockerfile: docker/main/Dockerfile
+    container_name: celery-worker-email
+    command: celery -A utils.celery_conf:celery_app worker --queues=email_campaigns -c 4 -l INFO --hostname=email-worker@%h
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+    depends_on:
+      - redis
+      - postgres  # если воркеры работают с БД
+    networks:
+      - web_app
+    restart: unless-stopped
+
+  # Celery воркер для подписок
+  celery-worker-subs:
+    build:
+      context: .
+      dockerfile: docker/main/Dockerfile
+    container_name: celery-worker-subs
+    command: celery -A utils.celery_conf:celery_app worker --queues=subscriptions_updates -c 2 -l INFO --hostname=subs-worker@%h
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - web_app
+    restart: unless-stopped
+
+  # Celery Beat (планировщик)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/main/Dockerfile
+    container_name: celery-beat
+    command: celery -A utils.celery_conf:celery_app beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+    depends_on:
+      - redis
+      - postgres
+      - backend  # запускаем после основного приложения
+    networks:
+      - web_app
+    restart: unless-stopped
+
+  # Flower (опционально - веб-интерфейс для мониторинга)
 
 networks:
-  kafka_network:
+  web_app:
     driver: bridge
 
 volumes:
-  zookeeper_data:
   redis_data:
   prometheus_data:
   grafana_data:
   elasticsearch_data:
+  kafka1_data:
+  kafka2_data:
+  postgres_data:

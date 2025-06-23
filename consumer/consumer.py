@@ -1,23 +1,15 @@
-# consumer.py
-import sys
-import os
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from fastapi import Depends
 import asyncio
+import os
 import logging
 from aiokafka import AIOKafkaConsumer
 from googleapiclient.errors import HttpError
-from app.google_token_file import get_gmail_service
-from app.database.session import SessionLocal
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.database.models import UserOrm
 import json
-from app.database.session import get_db2
 from sqlalchemy.future import select
 import ssl
+
+from app.database.session import get_db2
+from app.google_token_file import get_gmail_service
+from app.database.models import UserOrm
 from app.config import KAFKA_CONFIG
 
 ca_cert_path = os.path.join("C://kafka-ssl", "ca-cert.pem")

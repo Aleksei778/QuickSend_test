@@ -1,25 +1,14 @@
-from config import YOOKASSA_SECRET_KEY, YOOKASSA_SHOP_ID
-from typing import Optional, List
-import hashlib
-from uuid import uuid4
-import httpx
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from database.session import get_db, get_db2
-from database.models import UserOrm, SubscriptionOrm
-from auth.dependencies import get_current_user
-from datetime import datetime, timedelta
-from celery_conf import celery_app
-import asyncio
-from database.db_manager import DBManager
-from pydantic import BaseModel, Field
-from database.db_manager import DBManager
-from subpay.subscriptions import subscribe
-from typing import Dict
-from uuid import uuid4
+from pydantic import BaseModel
 from yookassa import Payment, Configuration
 from yookassa.domain.notification import WebhookNotification
+
+from app.config import YOOKASSA_SECRET_KEY, YOOKASSA_SHOP_ID
+from ..database.db_manager import DBManager
+from ..database.session import get_db
+from ..database.models import UserOrm
+from ..auth.dependencies import get_current_user
 
 payment_router = APIRouter()
 

@@ -3,8 +3,8 @@ import os
 
 load_dotenv(dotenv_path='../.env')
 
-DB_PORT = os.getenv("DB_PORT")  # добавьте значение по умолчанию
-DB_HOST = os.getenv("DB_HOST")  # используйте имя сервиса из docker-compose
+DB_PORT = os.getenv("DB_PORT")
+DB_HOST = os.getenv("DB_HOST")
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
@@ -19,7 +19,6 @@ BASE_URL = os.environ.get("BASE_URL")
 
 KAFKA_USER = os.environ.get("KAFKA_CLIENT_USERS")
 KAFKA_PASSWORD = os.environ.get("KAFKA_CLIENT_PASSWORDS")
-print(KAFKA_USER, KAFKA_PASSWORD)
 KEYSTORE_PASSWORD = os.environ.get("KEYSTORE_PASSWORD")
 
 TINKOFF_TERMINAL_KEY = os.environ.get("TINKOFF_TERMINAL_KEY")
@@ -44,5 +43,3 @@ KAFKA_CONFIG = {
     'ssl.certificate.location': 'C:/kafka-ssl/kafka-signed.cer',  # Клиентский сертификат
     'ssl.key.password': 'kafka123',  # Пароль для ключа (если зашифрован)
 }
-
-# DB_PORT = int(DB_PORT_NOT_INT)

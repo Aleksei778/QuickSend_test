@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 
-
 class CampaignCreate(BaseModel):
     sender_name: str
     subject: str

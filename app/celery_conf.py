@@ -1,12 +1,12 @@
-# celery_conf.py
 from celery import Celery
 from kombu import Queue, Exchange
 from celery.utils.log import get_task_logger
 import logging
-from utils.send_emails_kafka import mass_email_campaign
 import asyncio
 from datetime import datetime
 from celery.schedules import crontab
+
+from utils.send_emails_kafka import mass_email_campaign
 
 # Настройка базового логирования
 logging.basicConfig(

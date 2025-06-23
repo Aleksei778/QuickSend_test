@@ -1,11 +1,6 @@
-import sys
-import os
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+
 from app.config import DB_PORT, DB_HOST, DB_NAME, DB_PASS, DB_USER
 
 SQLALCHEMY_DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"

@@ -1,19 +1,16 @@
 from datetime import timedelta, datetime
 from jose import jwt, JWTError
-from app.config import (
-    JWT_ACCESS_SECRET_FOR_AUTH, 
-    JWT_ALGORITHM, 
-    JWT_REFRESH_SECRET_FOR_AUTH
-)
 from fastapi import HTTPException
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends
-from sqlalchemy.future import select
-from database.models import UserOrm
-from database.db_manager import DBManager
-from database.session import get_db
+
+from ..database.db_manager import DBManager
+from app.config import (
+    JWT_ACCESS_SECRET_FOR_AUTH,
+    JWT_ALGORITHM,
+    JWT_REFRESH_SECRET_FOR_AUTH
+)
 
 # Коснтанты для токенов
 ACCESS_TOKEN_EXPIRES_MINUTES = 60

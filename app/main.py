@@ -1,37 +1,24 @@
-# ---- ИМПОРТЫ ----
-import sys
-import os
-from typing import List
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fastapi import FastAPI, APIRouter, Request
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from send_router import send_router
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from fastapi_cache.backends.redis import RedisBackend
 from redis import asyncio as aioredis
-import os
 import uvicorn
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
-from app.config import SESSION_SECRET_KEY, KAFKA_CONFIG
 from confluent_kafka.admin import AdminClient, NewTopic
 from confluent_kafka import KafkaException
-from auth.google_auth import auth_router
-from subpay.subscriptions import subscription_router
-from utils.google_sheets import sheets_router
-from subpay.yookassa import payment_router
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from prometheus_fastapi_instrumentator import Instrumentator
-from datetime import datetime
 from elasticsearch import Elasticsearch
 from datetime import datetime
 import logging
 from starlette.middleware.sessions import SessionMiddleware
+
+from auth.google_auth import auth_router
+from subpay.subscriptions import subscription_router
+from app.config import SESSION_SECRET_KEY, KAFKA_CONFIG
+from utils.google_sheets import sheets_router
+from subpay.yookassa import payment_router
+
 # ---- ВСЕ НАСТРОЙКИ ПРИЛОЖЕНИЯ ----
 
 # Настройка логирования
@@ -130,68 +117,6 @@ async def log_requests(request: Request, call_next):
     return response
 
 api_router = APIRouter(prefix="/api/v1")
-
-# Обновленный путь к директории с фронтендом
-frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "site-front4"))
-html_dir = os.path.join(frontend_dir, "html")
-css_dir = os.path.join(frontend_dir, "styles")
-png_dir = os.path.join(frontend_dir, "png")
-svg_dir = os.path.join(frontend_dir, "svg")
-video_dir = os.path.join(frontend_dir, "video")
-scripts_dir = os.path.join(frontend_dir, "scripts")
-
-
-# Монтируем статические файлы
-app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
-
-# ---- БАЗОВЫЕ РУЧКИ ДЛЯ САЙТА ----
-@app.get("/")
-async def read_index():
-    index_path = os.path.join(html_dir, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": f"File not found: {index_path}"}
-    
-@app.get("/profile")
-async def read_profile():
-    index_path = os.path.join(html_dir, "profile.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": f"File not found: {index_path}"}
-    
-@app.get("/faq")
-async def read_faq():
-    index_path = os.path.join(html_dir, "faq.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": f"File not found: {index_path}"}
-
-@app.get("/pricing")
-async def read_pricing():
-    index_path = os.path.join(html_dir, "pricing.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": f"File not found: {index_path}"}
-
-@app.get("/privacy_policy")
-async def read_privpolicy():
-    index_path = os.path.join(html_dir, "privacy_policy.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": f"File not found: {index_path}"}
-
-@app.get("/terms_of_use")
-async def read_terms():
-    index_path = os.path.join(html_dir, "terms_of_use.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": f"File not found: {index_path}"}
 
 # ---- РОУТЕРЫ ----
 api_router.include_router(send_router)

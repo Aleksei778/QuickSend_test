@@ -1,14 +1,7 @@
-import sys
-import os
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Date, TIMESTAMP, Boolean, Numeric
 from sqlalchemy_utils import EmailType
 from datetime import date, datetime
-
 
 class Base(DeclarativeBase):
     pass

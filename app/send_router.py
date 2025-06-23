@@ -1,20 +1,16 @@
-from fastapi import APIRouter, BackgroundTasks, Request, Depends, File, UploadFile, Form, HTTPException
-from utils.send_emails_kafka import mass_email_campaign
-from sqlalchemy.future import select
+from fastapi import APIRouter, Request, Depends, File, UploadFile, Form, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.session import get_db
-from fastapi.responses import RedirectResponse, JSONResponse
-from database.models import UserOrm, CampaignOrm
+from fastapi.responses import JSONResponse
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError
-from auth.dependencies import get_current_user
-from database.db_manager import DBManager
 from typing import List
 import json
-from utils.send_emails_kafka import prepare_attachment_for_gmail
-import redis
-from celery_conf import send_campaign, add, test_task
+from celery_conf import send_campaign
 from pytz import timezone
+
+from utils.send_emails_kafka import mass_email_campaign, prepare_attachment_for_gmail
+from database.session import get_db
+from database.db_manager import DBManager
+from auth.dependencies import get_current_user
 
 # --- MOSCOW TIMEZONE ---
 moscow_tz = timezone('Europe/Moscow')

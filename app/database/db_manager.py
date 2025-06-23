@@ -1,20 +1,10 @@
-import sys
-import os
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import os, sys
 from datetime import date, datetime
 from sqlalchemy import Date
-from subpay.plans import plans
 from datetime import timedelta
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database.models import UserOrm, CampaignOrm, PaymentOrm, SubscriptionOrm, TokenOrm, PaypalPlansOrm
+from ..database.models import UserOrm, CampaignOrm, SubscriptionOrm, TokenOrm, PaypalPlansOrm
 
 class DBManager:
     def __init__(self, session: AsyncSession):

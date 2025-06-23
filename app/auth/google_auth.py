@@ -1,28 +1,17 @@
-# auth_router.py
-
-import sys
-import os
-
-# Добавляем корневую директорию проекта в PYTHONPATH
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from database.session import get_db
-from authlib.integrations.starlette_client import OAuth
-from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-from sqlalchemy.future import select
-from datetime import datetime, timedelta
-import uuid
-from .jwt_auth import create_access_token, verify_token, refresh_jwt_token, create_refresh_token
 from fastapi.responses import JSONResponse, Response
-import jwt
-from database.db_manager import DBManager
+from sqlalchemy.ext.asyncio import AsyncSession
+from authlib.integrations.starlette_client import OAuth
+from datetime import datetime
+
+from ..database.session import get_db
+from ..database.db_manager import DBManager
 from .dependencies import get_current_user
 from app.google_token_file import refresh_access_token, is_token_expired
 from app.config import BASE_URL
-from fastapi_cache.decorator import cache
+from .jwt_auth import create_access_token, verify_token, refresh_jwt_token, create_refresh_token
+from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
 # --- РОУТЕР АВТОРИЗАЦИИ ---
 auth_router = APIRouter()

@@ -1,16 +1,10 @@
-# google_auth.py
-
-import time
-import httpx
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-from .database.models import UserOrm, TokenOrm
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
-from datetime import datetime, timedelta
 
+from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from .database.models import UserOrm, TokenOrm
 
 # Обновление access_token с использованием refresh_token
 from datetime import datetime, timedelta
