@@ -4,11 +4,11 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from ..config import PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET
-from ..database.db_manager import DBManager
-from ..database.session import get_db
-from ..database.models import UserOrm
-from ..auth.dependencies import get_current_user
+from config import PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET
+from database.db_manager import DBManager
+from database.session import get_db
+from database.models import UserOrm
+from auth.dependencies import get_current_user
 from subscriptions import subscribe
 
 payment_router = APIRouter()

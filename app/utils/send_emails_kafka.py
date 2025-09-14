@@ -1,39 +1,16 @@
-from email.mime.text import MIMEText
-from email.mime.audio import MIMEAudio
-from email.mime.image import MIMEImage
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
+from email.mime import text, image, multipart, base
 from email.header import Header
 from email.utils import make_msgid
-from email import charset as Charset
-import email.utils
 import base64
 import os
-import datetime
 from datetime import datetime
 import logging
-from logging.handlers import RotatingFileHandler
 from aiokafka import AIOKafkaProducer
 import json
-import mimetypes
 from email.encoders import encode_base64
-# from schemas.campaing_schema import EmailData, Attachment
 from fastapi import UploadFile
-import ssl
-from app.config import KAFKA_CONFIG
 
-ca_cert_path = os.path.join("C://kafka-ssl", "ca-cert.pem")
-print(f"CERT: {ca_cert_path}")
-
-KAFKA_TOPIC = "emailsss"
-
-# для Gmail API
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.send",
-    "https://www.googleapis.com/auth/userinfo.profile",
-    "https://www.googleapis.com/auth/userinfo.email",
-]
+from config import KAFKA_TOPIC, KAFKA_PRODUCER_CONFIG
 
 def setup_logging():
     log_directory = 'logs'
@@ -46,7 +23,7 @@ def setup_logging():
     logger = logging.getLogger('email_campaign')
     logger.setLevel(logging.INFO)
 
-    file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
+    file_handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
 
     log_format = '%(asctime)s - %(levelname)s - %(message)s'
     formatter = logging.Formatter(log_format)
@@ -61,17 +38,7 @@ logger = setup_logging()
 # ---- ТЕСТОВАЯ ЧАСТЬ ДЛЯ РАССЫЛКИ ---
 async def get_kafka_producer():
     print("hello get_kafka_producer")
-    producer = AIOKafkaProducer(
-        bootstrap_servers=KAFKA_CONFIG['bootstrap.servers'],
-        security_protocol=KAFKA_CONFIG['security.protocol'],
-        sasl_mechanism=KAFKA_CONFIG['sasl.mechanism'],
-        sasl_plain_username=KAFKA_CONFIG['sasl.username'],
-        sasl_plain_password=KAFKA_CONFIG['sasl.password'],
-        ssl_context=ssl.create_default_context(cafile=ca_cert_path),
-        max_request_size=KAFKA_CONFIG['max.request.size'],
-        compression_type=KAFKA_CONFIG['compression.type'],
-        request_timeout_ms=KAFKA_CONFIG['request.timeout.ms']
-    )
+    producer = AIOKafkaProducer(**KAFKA_PRODUCER_CONFIG)
     await producer.start()
     return producer
 
@@ -85,7 +52,7 @@ async def prepare_attachment_for_gmail(file: UploadFile) -> dict:
         filename_encoded = filename.encode('utf-8')
         encoded_filename = ''.join(['%{:02x}'.format(b) for b in filename_encoded])    
 
-    mime_part = MIMEBase('application', 'octet-stream')
+    mime_part = base.MIMEBase('application', 'octet-stream')
     mime_part.set_payload(content)
     encode_base64(mime_part)
 
@@ -110,13 +77,13 @@ async def send_message_to_kafka(producer, user_id, message_data):
     await producer.send_and_wait(KAFKA_TOPIC, json.dumps(message_data).encode('utf-8'), key=str(user_id).encode('utf-8'))
 
 async def create_message_with_attachment(sender, recipient, subject, body, sender_name, attachments=None, inline_images=None):
-    msg = MIMEMultipart()
+    msg = multipart.MIMEMultipart()
     msg['From'] = f"{sender_name} <{sender}>"
     msg['To'] = recipient 
     msg['Subject'] = Header(f"{subject}", 'utf-8')
     msg['Message-ID'] = make_msgid()
 
-    msg.attach(MIMEText(body, 'html')) #можно 'html' вместо 'plain' , чтобы поддерживать форматироание текста
+    msg.attach(text.MIMEText(body, 'html')) #можно 'html' вместо 'plain' , чтобы поддерживать форматироание текста
 
     total_size = 0
     max_size = 25 * 1024 * 1024
@@ -129,14 +96,14 @@ async def create_message_with_attachment(sender, recipient, subject, body, sende
                 if total_size > max_size:
                     logger.warning(f"Skipping inline image {img_id} due to size limit")
                     continue
-                img_part = MIMEImage(img_data)
+                img_part = image.MIMEImage(img_data)
                 img_part.add_header('Content-ID', f'<{img_id}>')
                 img_part.add_header('Content-Disposition', 'inline')
                 msg.attach(img_part)
                 
     if attachments:
         for attachment in attachments:
-            part = MIMEBase('application', 'octet-stream')
+            part = base.MIMEBase('application', 'octet-stream')
             # Используем уже закодированные данные
             part.set_payload(base64.urlsafe_b64decode(attachment['data']))
             encode_base64(part)

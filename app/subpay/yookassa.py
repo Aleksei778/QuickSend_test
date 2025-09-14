@@ -4,11 +4,11 @@ from pydantic import BaseModel
 from yookassa import Payment, Configuration
 from yookassa.domain.notification import WebhookNotification
 
-from app.config import YOOKASSA_SECRET_KEY, YOOKASSA_SHOP_ID
-from ..database.db_manager import DBManager
-from ..database.session import get_db
-from ..database.models import UserOrm
-from ..auth.dependencies import get_current_user
+from config import YOOKASSA_SECRET_KEY, YOOKASSA_SHOP_ID
+from database.db_manager import DBManager
+from database.session import get_db
+from database.models import UserOrm
+from auth.dependencies import get_current_user
 
 payment_router = APIRouter()
 
@@ -23,9 +23,6 @@ Configuration.secret_key = YOOKASSA_SECRET_KEY
 class YookassaPayments:
     @staticmethod
     async def create_subscription(user_email: str, plan: str, period: str):
-
-        from yookassa import Payment
-
         payment = Payment.create({
             "amount": {
                 "value": "100.00",

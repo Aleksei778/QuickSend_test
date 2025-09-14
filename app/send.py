@@ -92,7 +92,7 @@ async def run_campaign2(
         )
         
         print(f"Рассылка запланирована на {camp_date} {camp_time}.")
-        await db_manager.create_campaing(
+        await db_manager.create_campaign(
             sender_name=sender_name,
             subject=subject,
             body_template=body_template,
@@ -116,7 +116,7 @@ async def run_campaign2(
         )
         print(f"Рассылка начата в {datetime.now().strftime('%Y-%m-%d %H:%M')}.")
         
-        await db_manager.create_campaing(
+        await db_manager.create_campaign(
             sender_name=sender_name,
             subject=subject,
             body_template=body_template,
@@ -205,7 +205,7 @@ async def run_campaign1(files: List[UploadFile] = File(...), body: str = Form(..
         print(f"Рассылка запланирована на {camp_date} {camp_time}.")
 
         # Добавляем кампанию в бд
-        await db_manager.create_campaing(
+        await db_manager.create_campaign(
             sender_name=sender_name,
             subject=subject,
             body_template=body_template,
@@ -242,12 +242,12 @@ async def run_campaign1(files: List[UploadFile] = File(...), body: str = Form(..
 async def get_all_campaigns(request: Request, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     db_manager = DBManager(session=db)
 
-    campaings = await db_manager.get_all_campaigns(user_id=current_user.id)
+    campaigns = await db_manager.get_all_campaigns(user_id=current_user.id)
     
     new_campaigns = []
     total_recipients = 0
     
-    for camp in campaings:
+    for camp in campaigns:
         new_camp = {}
         
         recipients_list = camp.recipients.split(",") 

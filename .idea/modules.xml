@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/FastAPI_quicksend2.iml" filepath="$PROJECT_DIR$/.idea/FastAPI_quicksend2.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/quicksend.iml" filepath="$PROJECT_DIR$/.idea/quicksend.iml" />
     </modules>
   </component>
 </project>

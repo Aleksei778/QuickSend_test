@@ -3,14 +3,19 @@ FROM python:3.11-slim
 # Устанавливаем рабочую директорию в контейнере
 WORKDIR /app
 
-# Копируем requirements.txt
+# Копируем и устанавливаем зависимости
 COPY requirements.txt .
-
-# Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код приложения
-COPY app/ .
+COPY ./app/ ./app/
+
+# Копируем консумеры
+COPY ./consumer/ ./consumer/
+
+# Копируем миграции
+COPY ./alembic.ini ./
+COPY ./migrations/ ./migrations/
 
 # Запускаем приложение через uvicorn
-CMD ["python", "main.py"]
+CMD ["python", "app/main.py"]

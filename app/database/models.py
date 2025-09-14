@@ -6,7 +6,6 @@ from datetime import date, datetime
 class Base(DeclarativeBase):
     pass
 
-
 class UserOrm(Base):
     __tablename__ = "users"
 

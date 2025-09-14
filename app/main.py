@@ -1,13 +1,12 @@
 from fastapi import FastAPI, APIRouter, Request
-from send_router import send_router
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
 from contextlib import asynccontextmanager
 from redis import asyncio as aioredis
 import uvicorn
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
-from confluent_kafka.admin import AdminClient, NewTopic
-from confluent_kafka import KafkaException
+from aiokafka.admin import AIOKafkaAdminClient, NewTopic
+from aiokafka.errors import TopicAlreadyExistsError, KafkaError
 from elasticsearch import Elasticsearch
 from datetime import datetime
 import logging
@@ -15,9 +14,17 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from auth.google_auth import auth_router
 from subpay.subscriptions import subscription_router
-from app.config import SESSION_SECRET_KEY, KAFKA_CONFIG
+from config import (
+    SESSION_SECRET_KEY,
+    KAFKA_BASE_CONFIG,
+    KAFKA_TOPIC,
+    KAFKA_NUM_PARTITIONS,
+    KAFKA_REPLICATION_FACTOR,
+    CORS_ORIGINS
+)
 from utils.google_sheets import sheets_router
 from subpay.yookassa import payment_router
+from send import send_router
 
 # ---- ВСЕ НАСТРОЙКИ ПРИЛОЖЕНИЯ ----
 
@@ -33,50 +40,65 @@ async def lifespan(app: FastAPI):
     # Инициализация кеша после создания Redis соединения
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
-    create_kafka_topic()
+    await create_kafka_topic_with_check()
 
     yield
 
 app = FastAPI(lifespan=lifespan)
 
-KAFKA_TOPIC = "emailsss"
-NUM_PARTITIONS = 6
-REPLICATION_FACTOR = 2
+async def create_kafka_topic():
+    admin_client = AIOKafkaAdminClient(**KAFKA_BASE_CONFIG)
 
-def create_kafka_topic():
-    admin_client = AdminClient(KAFKA_CONFIG)
     try:
-        # Ensure NUM_PARTITIONS and REPLICATION_FACTOR are integers
-        num_partitions = int(NUM_PARTITIONS)
-        replication_factor = int(REPLICATION_FACTOR)
-        
-        topic = NewTopic(KAFKA_TOPIC, num_partitions=num_partitions, replication_factor=replication_factor)
-        futures = admin_client.create_topics([topic])
-        for topic, future in futures.items():
-            future.result()  # Blocks until the topic is created
-        print(f"Тема {KAFKA_TOPIC} успешно создана.")
+        await admin_client.start()
+
+        topic = NewTopic(
+            name=KAFKA_TOPIC,
+            num_partitions=KAFKA_NUM_PARTITIONS,
+            replication_factor=KAFKA_REPLICATION_FACTOR
+        )
+
+        await admin_client.create_topics([topic])
+
+        logger.info(f"Created topic {KAFKA_TOPIC}")
+    except TopicAlreadyExistsError:
+        logger.info(f"Topic {KAFKA_TOPIC} already exists")
     except ValueError as ve:
-        print(f"Ошибка преобразования типов: {ve}")
-    except KafkaException as e:
-        if "already exists" in str(e):
-            print(f"Тема {KAFKA_TOPIC} уже существует.")
-        else:
-            print(f"Ошибка при создании темы: {e}")
+        logger.error(f"Ошибка преобразования типов: {ve}")
+    except KafkaError as ke:
+        logger.error(f"Ошибка при создании темы: {ke}")
 
-# список разрешенных адресов
-origins = [
-    "http://127.0.0.1:8000",
-    "chrome-extension://fekaiggohacnhgaleajohgpipbmbiaca",
-    "https://f069-78-30-229-174.ngrok-free.app",
-    "https://mail.google.com"
-    # "https://my_domen.com"
-]
+async def check_kafka_topic_exists(topic: str) -> bool:
+    admin_client = AIOKafkaAdminClient(**KAFKA_BASE_CONFIG)
 
-# добавление middleware
-# для CORS
+    try:
+        await admin_client.start()
+
+        metadata = await admin_client.describe_topics([topic])
+        return topic in metadata
+
+    except Exception as e:
+        logger.error(f"Ошибка при проверке существования темы kafka: {e}")
+        return False
+    finally:
+        await admin_client.close()
+
+async def create_kafka_topic_with_check():
+    try:
+        if await check_kafka_topic_exists(KAFKA_TOPIC):
+            logger.info(f"Kafka topic {KAFKA_TOPIC} already exists")
+            return
+
+        await create_kafka_topic()
+
+    except Exception as e:
+        logger.error(f"Ошибка при создании топика: {e}")
+        raise
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Set-Cookie", "Access-Control-Allow-Headers", "Authorization", "Access-Control-Allow-Origins", "accept"],

@@ -5,14 +5,13 @@ from typing import Dict, Any
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database.db_manager import DBManager
-from app.config import (
+from database.db_manager import DBManager
+from config import (
     JWT_ACCESS_SECRET_FOR_AUTH,
     JWT_ALGORITHM,
     JWT_REFRESH_SECRET_FOR_AUTH
 )
 
-# Коснтанты для токенов
 ACCESS_TOKEN_EXPIRES_MINUTES = 60
 REFRESH_TOKEN_EXPIRES_DAYS = 60
 
@@ -67,40 +66,35 @@ class JWTHandler:
         token_type: str = "access"
     ) -> Dict[str, Any]:
         try:
-            print("PAYLOAD")
-            print("token", token)
             secret = (
                 self.access_secret
                 if token_type == "access"
                 else self.refresh_secret
             )
-            print(secret)
 
             payload = jwt.decode(
                 token,
                 secret,
                 algorithms=[self.algorithm]
             )
-            print(payload)
-            # Проверяем тип токена
+
             if payload.get("type") != token_type:
-                print("not type")
                 raise TokenError("Invalid token type")
-        
-            # Проверям срок действия
+
             exp = payload.get("exp")
             if not exp or datetime.fromtimestamp(exp) < datetime.utcnow():
                 raise TokenError("Token has expired")
             
             return payload
+
         except JWTError as jwt_e:
-            print("JWTERROR")
             credentials_exception = HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"Could not validate credentials: {str(jwt_e)}",
                 headers={"WWW-Authenticate": "Bearer"},
             )
             raise credentials_exception
+
         except TokenError as token_e:
             credentials_exception = HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -116,16 +110,11 @@ class JWTHandler:
     ) -> Dict[str, str]:
         try:
             db_manager = DBManager(session=db)
-            print(refresh_token)
 
-            # Проверяем refresh токен
             payload = await self.verify_token(refresh_token, "refresh")
-            print("verify")
-            print(payload)
-            # Получаем данные пользователя
             user_data = payload.get("user_info")
+
             if not user_data:
-                print("not user data")
                 raise TokenError("Invalid token data")
             print(user_data)
 
@@ -163,12 +152,11 @@ class JWTHandler:
             # Создаем новую пару токенов
             new_access_token = await self.create_access_token(new_data)
             new_refresh_token = await self.create_refresh_token(new_data)
-            token_type = "bearer"
-            print("")
+
             return {
                 "access_token": new_access_token,
                 "refresh_token": new_refresh_token,
-                "token_type": token_type
+                "token_type": "Bearer"
             }
         
         except (TokenError) as e:
@@ -185,11 +173,8 @@ class JWTHandler:
                 detail=f"Error refreshing token: {str(e)}"
             )
 
-
-# Создаем экземпляр обработчика JWT
 jwt_handler = JWTHandler()
 
-# Экспортируем функции для удобства использования
 async def create_access_token(data: Dict[str, Any]) -> str:
     return await jwt_handler.create_access_token(data)
 

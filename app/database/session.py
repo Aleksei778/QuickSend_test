@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from contextlib import asynccontextmanager
 
-from .db import engine
+from database.db import engine
 
 SessionLocal = async_sessionmaker(autocommit = False, autoflush=False, bind=engine, class_=AsyncSession)
 

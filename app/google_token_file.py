@@ -2,17 +2,15 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from sqlalchemy.future import select
 from fastapi import HTTPException
-
-from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-from .database.models import UserOrm, TokenOrm
-
-# Обновление access_token с использованием refresh_token
 from datetime import datetime, timedelta
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 from sqlalchemy import update
 
+from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from database.models import UserOrm, TokenOrm
+
+# Обновление access_token с использованием refresh_token
 async def refresh_access_token(token: TokenOrm, db: AsyncSession):
     if not token or not token.refresh_token:
         raise Exception("Refresh token is missing")
@@ -58,36 +56,26 @@ async def refresh_access_token(token: TokenOrm, db: AsyncSession):
         await db.rollback()
         raise Exception(f"Unexpected error while refreshing token: {str(e)}")
 
-# Проверка истечения токена
 def is_token_expired(token: TokenOrm):
-    print(token.expires_at)
     return datetime.now() >= token.expires_at 
 
-# Получение Gmail сервиса
 async def get_gmail_service(user: UserOrm, db: AsyncSession):
-    print('get_gmail_service')
-    # Извлекаем токен OAuth из объекта пользователя
-    # Выполняем асинхронный запрос для получения токена пользователя
     stmt = select(TokenOrm).where(TokenOrm.user_id == user.id)
-    print('НЕТ ОШИБКИ')
     result = await db.execute(stmt)
     token = result.scalar_one_or_none()
 
     if not token:
-        raise HTTPException(status_code=404, detail="Токен не найден.")
+        raise HTTPException(
+            status_code=404,
+            detail="Token has not found"
+        )
 
-    print('token')
-    # Проверяем, не истек ли токен, и обновляем при необходимости
     if is_token_expired(token):
-        print('token has expired')
         await refresh_access_token(token, db)
 
         await db.refresh(token)
         await db.flush()
 
-    print(token.access_token)
-    print('НЕТ ОШИБКИ ПОСЛЕ refresh')
-    # Создаем объект Credentials для работы с Gmail API
     creds = Credentials(
         token=token.access_token,
         refresh_token=token.refresh_token,
@@ -96,15 +84,10 @@ async def get_gmail_service(user: UserOrm, db: AsyncSession):
         client_secret=GOOGLE_CLIENT_SECRET,
         scopes=['https://www.googleapis.com/auth/gmail.send']
     )
-    print('НЕТ ОШИБКИ ПОСЛЕ creds')
 
     return build('gmail', 'v1', credentials=creds)
 
-# Получение GoogleSheets сервиса
 async def get_sheets_service(user: UserOrm, db: AsyncSession):
-    print('get sheets service')
-    # Извлекаем токен OAuth из объекта пользователя
-    # Выполняем асинхронный запрос для получения токена пользователя
     stmt = select(TokenOrm).where(TokenOrm.user_id == user.id)
     result = await db.execute(stmt)
     token = result.scalar_one_or_none()
@@ -112,13 +95,10 @@ async def get_sheets_service(user: UserOrm, db: AsyncSession):
     if not token:
         raise HTTPException(status_code=404, detail="Токен не найден.")
 
-    print('token')
-    # Проверяем, не истек ли токен, и обновляем при необходимости
     if is_token_expired(token):
         print('token has expired')
         await refresh_access_token(token, db)
 
-    # Создаем объект Credentials для работы с Gmail API
     creds = Credentials(
         token=token.access_token,
         refresh_token=token.refresh_token,

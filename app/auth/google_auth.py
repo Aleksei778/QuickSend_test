@@ -5,18 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from authlib.integrations.starlette_client import OAuth
 from datetime import datetime
 
-from ..database.session import get_db
-from ..database.db_manager import DBManager
-from .dependencies import get_current_user
-from app.google_token_file import refresh_access_token, is_token_expired
-from app.config import BASE_URL
-from .jwt_auth import create_access_token, verify_token, refresh_jwt_token, create_refresh_token
-from app.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from database.session import get_db
+from database.db_manager import DBManager
+from auth.dependencies import get_current_user
+from auth.jwt_auth import create_access_token, verify_token, refresh_jwt_token, create_refresh_token
+from google_token_file import refresh_access_token, is_token_expired
+from config import BASE_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
-# --- РОУТЕР АВТОРИЗАЦИИ ---
 auth_router = APIRouter()
 
-# --- НАСТРОЙКИ ДЛЯ ГУГЛ-АВТОРИЗАЦИИ ---
 oauth = OAuth()
 CONF_URL = 'https://accounts.google.com/.well-known/openid-configuration'
 oauth.register(
@@ -34,14 +31,12 @@ oauth.register(
     server_metadata_url=CONF_URL
 )
 
-# --- ЛОГИН ---
 @auth_router.get('/login')
 async def login(request: Request):
     google = oauth.create_client('google')
     redirect_uri = request.url_for('oauth2callback')
     return await google.authorize_redirect(request, redirect_uri, access_type='offline', prompt='consent')
 
-# --- CALLBACK ---
 @auth_router.get('/oauth2callback', name='oauth2callback')
 async def auth(request: Request, db: AsyncSession = Depends(get_db)):
     google = oauth.create_client('google')
@@ -49,10 +44,9 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
 
     if not token_data:
         return RedirectResponse(url='/error')
-    print("НЕТ ОШИБКИ")
+
     db_manager = DBManager(session=db)
 
-    # Используем токен для запроса информации о пользователе
     resp = await google.get('https://www.googleapis.com/oauth2/v2/userinfo', token=token_data)
     user_info = resp.json()
 
@@ -61,7 +55,6 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
     if not user_info or 'error' in user_info:
         return RedirectResponse(url='/error')
 
-    # Сохраняем данные о пользователе и токене в базу данных
     user = await db_manager.get_user_by_email(user_info['email'])
 
     if not user:
@@ -72,7 +65,6 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
     user_email = user.email
     user_picture = user.picture
 
-    # получаем данные о подписке пользователя
     active_sub = await db_manager.get_active_sub(user_id=user_id)
 
     active_sub_dict = {"plan": "No active sub"}
@@ -80,11 +72,10 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
     if active_sub:
         active_sub_dict["plan"] = active_sub.plan
 
-    # Сохраняем или обновляем токен
     oauth_token = await db_manager.get_token(user.id)
 
     if not oauth_token:
-        oauth_token = await db_manager.create_token(
+        await db_manager.create_token(
             user_id=user.id,
             access_token=token_data['access_token'],
             refresh_token=token_data.get('refresh_token'),
@@ -102,7 +93,6 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
 
         await db.commit()
 
-    # Создаем JWT-токен
     data = {
         "user_info": {
             "id": user_id,
@@ -130,7 +120,6 @@ async def auth(request: Request, db: AsyncSession = Depends(get_db)):
 
     return response
 
-# --- ПОЛУЧЕНИЕ ТОКЕНА ---
 @auth_router.get("/get_jwt")
 async def get_jwt(request: Request, db: AsyncSession = Depends(get_db)):
     access_token = request.cookies.get("access_token")
@@ -163,6 +152,7 @@ async def get_jwt(request: Request, db: AsyncSession = Depends(get_db)):
 @auth_router.post("/refresh")
 async def refresh_token(request: Request, db: AsyncSession = Depends(get_db)):
     refresh_token = request.cookies.get("refresh_token")
+
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Refresh token not found")
     
@@ -185,14 +175,10 @@ async def refresh_token(request: Request, db: AsyncSession = Depends(get_db)):
     except HTTPException:
         raise HTTPException(status_code=401, detail="Invalid refresh token.")
 
-    
-
-# --- ИНФОРМАЦИЯ О ТЕКУЩЕМ ПОЛЬЗОВАТЕЛЕ ---
 @auth_router.get("/check_user")
 async def read_user_me(current_user = Depends(get_current_user)):
     return {"name": f"{current_user.first_name} {current_user.last_name}", "email": current_user.email, "picture": current_user.picture}
 
-# --- ВЫХОД ИЗ АККАУНТА ---
 @auth_router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie(key="access_token")
@@ -202,20 +188,13 @@ async def logout(response: Response):
 @auth_router.post("/get_google_token")
 async def get_google_token(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     db_manager = DBManager(session=db)
-    print('get_gmail_service')
-    # Извлекаем токен OAuth из объекта пользователя
-    # Выполняем асинхронный запрос для получения токена пользователя
+
     token = await db_manager.get_token(current_user.id)
 
     if not token:
         raise HTTPException(status_code=404, detail="Токен не найден.")
 
-    print('token')
-    # Проверяем, не истек ли токен, и обновляем при необходимости
     if is_token_expired(token):
-        print('token has expired')
         await refresh_access_token(token, db)
 
     return {"google_access_token": token.access_token}
-
-        

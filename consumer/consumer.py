@@ -1,20 +1,18 @@
-import asyncio
+import sys
 import os
+import asyncio
 import logging
 from aiokafka import AIOKafkaConsumer
 from googleapiclient.errors import HttpError
 import json
 from sqlalchemy.future import select
-import ssl
 
-from app.database.session import get_db2
-from app.google_token_file import get_gmail_service
-from app.database.models import UserOrm
-from app.config import KAFKA_CONFIG
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
-ca_cert_path = os.path.join("C://kafka-ssl", "ca-cert.pem")
-
-KAFKA_TOPIC = "emailsss"
+from database.session import get_db2
+from google_token_file import get_gmail_service
+from database.models import UserOrm
+from consumer_config import KAFKA_CONSUMER_CONFIG, KAFKA_TOPIC
 
 # Логирование
 logger = logging.getLogger(__name__)
@@ -22,15 +20,7 @@ logger = logging.getLogger(__name__)
 async def process_kafka_messages():
     consumer = AIOKafkaConsumer(
         KAFKA_TOPIC,
-        bootstrap_servers=KAFKA_CONFIG['bootstrap.services'],
-        group_id="email_sender_group",
-        security_protocol=KAFKA_CONFIG['security.protocol'],
-        ssl_context=ssl.create_default_context(cafile=ca_cert_path),
-        sasl_mechanism=KAFKA_CONFIG["sasl.mechanism"],
-        sasl_plain_username=KAFKA_CONFIG["sasl.username"],
-        sasl_plain_password=KAFKA_CONFIG["sasl.password"],
-        enable_auto_commit=False,
-        auto_offset_reset="earliest"
+        **KAFKA_CONSUMER_CONFIG
     )
     await consumer.start()
 

@@ -96,26 +96,10 @@ def test_celery_connection():
     except Exception as e:
         logger.error(f"Celery connection test failed: {e}")
         return False
-    
-# Тестовая задача с подробным логированием
-@celery_app.task(bind=True)
-def add(self, x, y):
-    # Логируем начало выполнения
-    logger.info(f"Starting task {self.request.id}")
-    logger.info(f"Adding numbers: {x} + {y}")
-    
-    result = x + y
-    
-    # Логируем результат
-    logger.info(f"Result: {result}")
-    
-    return result
 
-# Основная задача отправки писем с подробным логированием
 @celery_app.task(bind=True)
 def send_campaign(self, email_data):
     logger.info(email_data)
-    # Логируем начало выполнения
     logger.info("Email data received: %s", {
         k: v if k != 'attachments' else f"{len(v)} attachments"
         for k, v in email_data.items()
@@ -124,7 +108,6 @@ def send_campaign(self, email_data):
     logger.info(f"TASK scheduled for {datetime.now()}")
     
     try:
-        # Создаем новый event loop для каждой задачи
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -152,7 +135,6 @@ def send_campaign(self, email_data):
         logger.error("Error in send_campaign", exc_info=True)
         raise self.retry(exc=exc)
 
-# Функция для тестирования воркера
 @celery_app.task
 def test_worker():
     logger.debug("Debug message from test_worker")

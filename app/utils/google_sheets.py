@@ -1,14 +1,11 @@
-from app.google_token_file import get_sheets_service
-from fastapi.routing import APIRouter
-from fastapi.requests import Request
 from pydantic import BaseModel
 from typing import List
-from fastapi import HTTPException
-from fastapi import Depends
-from auth.dependencies import get_current_user, get_db
+from fastapi import HTTPException, Depends, routing
 from sqlalchemy.ext.asyncio import AsyncSession
-import urllib.parse
 from collections import OrderedDict
+
+from google_token_file import get_sheets_service
+from auth.dependencies import get_current_user, get_db
 
 # Модели данных
 class SheetRequest(BaseModel):
@@ -24,7 +21,7 @@ class EmailList(BaseModel):
 
 
 # --- РОУТЕР GOOGLE SHEETS ---
-sheets_router = APIRouter()
+sheets_router = routing.APIRouter()
 
 @sheets_router.post("/get-emails", response_model=EmailList)
 async def get_emails(request: SheetRequest, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

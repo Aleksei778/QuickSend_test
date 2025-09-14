@@ -4,14 +4,14 @@ from datetime import date, datetime
 from sqlalchemy import Date
 from datetime import timedelta
 
-from ..database.models import UserOrm, CampaignOrm, SubscriptionOrm, TokenOrm, PaypalPlansOrm
+from database.models import UserOrm, CampaignOrm, SubscriptionOrm, TokenOrm, PaypalPlansOrm
 
 class DBManager:
     def __init__(self, session: AsyncSession):
         self.session = session
     
-    async def create_campaing(self, sender_name, subject, body_template, recipients, attachment_files, user_id, campaign_time = datetime.now()) -> CampaignOrm:
-        new_campaing = CampaignOrm(
+    async def create_campaign(self, sender_name, subject, body_template, recipients, attachment_files, user_id, campaign_time = datetime.now()) -> CampaignOrm:
+        new_campaign = CampaignOrm(
             sender_name=sender_name,
             subject=subject,
             body_template=body_template,
@@ -21,10 +21,10 @@ class DBManager:
             user_id=user_id
         )
 
-        self.session.add(new_campaing)
+        self.session.add(new_campaign)
         await self.session.flush()
         await self.session.commit()
-        return new_campaing
+        return new_campaign
     
     async def create_user(self, email, first_name, last_name, picture) -> UserOrm:
         new_user = UserOrm(
