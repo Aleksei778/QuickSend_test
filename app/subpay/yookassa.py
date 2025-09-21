@@ -12,38 +12,34 @@ from auth.dependencies import get_current_user
 
 payment_router = APIRouter()
 
+
 class SubscriptionRequest(BaseModel):
     plan_type: str
     period: str
     email: str
 
+
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
+
 
 class YookassaPayments:
     @staticmethod
     async def create_subscription(user_email: str, plan: str, period: str):
-        payment = Payment.create({
-            "amount": {
-                "value": "100.00",
-                "currency": "RUB"
-            },
-            "capture": True,
-            "confirmation": {
-                "type": "redirect",
-                "return_url": "https://df19-62-60-235-215.ngrok-free.app/api/v1/webhooks/yookassa"
-            },
-            "description": "Оплата подписки",
-            "metadata": {
-                "user_email": user_email,
-                "plan": plan,
-                "period": period
-            },
-            "payment_method_data": {
-                "type": "bank_card"
-            },
-            "save_payment_method": True
-        })
+        payment = Payment.create(
+            {
+                "amount": {"value": "100.00", "currency": "RUB"},
+                "capture": True,
+                "confirmation": {
+                    "type": "redirect",
+                    "return_url": "https://df19-62-60-235-215.ngrok-free.app/api/v1/webhooks/yookassa",
+                },
+                "description": "Оплата подписки",
+                "metadata": {"user_email": user_email, "plan": plan, "period": period},
+                "payment_method_data": {"type": "bank_card"},
+                "save_payment_method": True,
+            }
+        )
 
         return payment
 
@@ -59,36 +55,33 @@ class YookassaPayments:
 
     # -- TODO -- разобраться с возвратами
 
+
 @payment_router.post("/yookassa/subscriptions/create")
 async def create_subscription(
     sub_request: SubscriptionRequest,
     current_user: UserOrm = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     db_manager = DBManager(session=db)
 
     result = await YookassaPayments.create_subscription(
         user_email=sub_request.user_email,
         plan=sub_request.plan_type,
-        period=sub_request.period
+        period=sub_request.period,
     )
     print(result)
-    
+
     confirmation_url = result["confirmation"]["confirmation_url"]
     confirmation = result["confirmation"]
 
     print(confirmation)
     print(confirmation_url)
 
-    return {
-        "confirmation_url": result["confirmation"]["confirmation_url"]
-    }
+    return {"confirmation_url": result["confirmation"]["confirmation_url"]}
+
 
 @payment_router.post("/webhooks/yookassa")
-async def handle_webhook(
-    request: Request, 
-    db: AsyncSession = Depends(get_db)
-):
+async def handle_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     event_body = await request.json()
 
     notification_object = WebhookNotification(event_body)

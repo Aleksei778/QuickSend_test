@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 
 from database.db import engine
 
-SessionLocal = async_sessionmaker(autocommit = False, autoflush=False, bind=engine, class_=AsyncSession)
+SessionLocal = async_sessionmaker(
+    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+)
+
 
 async def get_db():
     db: AsyncSession = SessionLocal()
@@ -12,10 +15,11 @@ async def get_db():
     finally:
         await db.close()
 
+
 @asynccontextmanager
 async def get_db2():
     db: AsyncSession = SessionLocal()
     try:
         yield db
     finally:
-        await db.close() 
+        await db.close()

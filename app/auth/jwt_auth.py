@@ -9,14 +9,16 @@ from database.db_manager import DBManager
 from config import (
     JWT_ACCESS_SECRET_FOR_AUTH,
     JWT_ALGORITHM,
-    JWT_REFRESH_SECRET_FOR_AUTH
+    JWT_REFRESH_SECRET_FOR_AUTH,
 )
 
 ACCESS_TOKEN_EXPIRES_MINUTES = 60
 REFRESH_TOKEN_EXPIRES_DAYS = 60
 
+
 class TokenError(Exception):
     pass
+
 
 class JWTHandler:
     def __init__(self):
@@ -27,16 +29,11 @@ class JWTHandler:
     async def create_access_token(self, data: Dict[str, Any]) -> str:
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRES_MINUTES)
-        to_encode.update({
-            "exp": expire, 
-            "type": "access"
-        })
-        
+        to_encode.update({"exp": expire, "type": "access"})
+
         try:
             encoded_jwt = jwt.encode(
-                to_encode,
-                self.access_secret,
-                algorithm=self.algorithm
+                to_encode, self.access_secret, algorithm=self.algorithm
             )
             return encoded_jwt
         except Exception as e:
@@ -45,38 +42,25 @@ class JWTHandler:
     async def create_refresh_token(self, data: Dict[str, Any]) -> str:
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRES_MINUTES)
-        to_encode.update({
-            "exp": expire, 
-            "type": "refresh"
-        })
-        
+        to_encode.update({"exp": expire, "type": "refresh"})
+
         try:
             encoded_jwt = jwt.encode(
-                to_encode,
-                self.refresh_secret,
-                algorithm=self.algorithm
+                to_encode, self.refresh_secret, algorithm=self.algorithm
             )
             return encoded_jwt
         except Exception as e:
             raise TokenError(f"Error creating refresh token: {str(e)}")
 
     async def verify_token(
-        self,
-        token: str,
-        token_type: str = "access"
+        self, token: str, token_type: str = "access"
     ) -> Dict[str, Any]:
         try:
             secret = (
-                self.access_secret
-                if token_type == "access"
-                else self.refresh_secret
+                self.access_secret if token_type == "access" else self.refresh_secret
             )
 
-            payload = jwt.decode(
-                token,
-                secret,
-                algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(token, secret, algorithms=[self.algorithm])
 
             if payload.get("type") != token_type:
                 raise TokenError("Invalid token type")
@@ -84,7 +68,7 @@ class JWTHandler:
             exp = payload.get("exp")
             if not exp or datetime.fromtimestamp(exp) < datetime.utcnow():
                 raise TokenError("Token has expired")
-            
+
             return payload
 
         except JWTError as jwt_e:
@@ -102,11 +86,9 @@ class JWTHandler:
                 headers={"WWW-Authenticate": "Bearer"},
             )
             raise credentials_exception
-        
+
     async def refresh_token(
-        self,
-        refresh_token: str,
-        db: AsyncSession
+        self, refresh_token: str, db: AsyncSession
     ) -> Dict[str, str]:
         try:
             db_manager = DBManager(session=db)
@@ -119,13 +101,13 @@ class JWTHandler:
             print(user_data)
 
             # Проверяем пользователя в БД
-            user = await db_manager.get_user_by_email(user_data['email'])
+            user = await db_manager.get_user_by_email(user_data["email"])
             print(user.id)
-            
+
             if not user:
                 print("not user")
                 raise TokenError("User not found")
-            
+
             user_id = user.id
             user_name = user.first_name + " " + user.last_name
             user_email = user.email
@@ -144,9 +126,7 @@ class JWTHandler:
                     "name": user_name,
                     "email": user_email,
                 },
-                "subscription_info": {
-                    **active_sub_dict
-                }
+                "subscription_info": {**active_sub_dict},
             }
 
             # Создаем новую пару токенов
@@ -156,10 +136,10 @@ class JWTHandler:
             return {
                 "access_token": new_access_token,
                 "refresh_token": new_refresh_token,
-                "token_type": "Bearer"
+                "token_type": "Bearer",
             }
-        
-        except (TokenError) as e:
+
+        except TokenError as e:
             print(str(e))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -170,19 +150,24 @@ class JWTHandler:
             print(str(e))
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error refreshing token: {str(e)}"
+                detail=f"Error refreshing token: {str(e)}",
             )
 
+
 jwt_handler = JWTHandler()
+
 
 async def create_access_token(data: Dict[str, Any]) -> str:
     return await jwt_handler.create_access_token(data)
 
+
 async def create_refresh_token(data: Dict[str, Any]) -> str:
     return await jwt_handler.create_refresh_token(data)
 
+
 async def verify_token(token: str, token_type: str = "access") -> Dict[str, Any]:
     return await jwt_handler.verify_token(token, token_type)
+
 
 async def refresh_jwt_token(refresh_token: str, db: AsyncSession) -> Dict[str, str]:
     return await jwt_handler.refresh_token(refresh_token, db)

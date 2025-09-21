@@ -20,7 +20,7 @@ from config import (
     KAFKA_TOPIC,
     KAFKA_NUM_PARTITIONS,
     KAFKA_REPLICATION_FACTOR,
-    CORS_ORIGINS
+    CORS_ORIGINS,
 )
 from utils.google_sheets import sheets_router
 from subpay.yookassa import payment_router
@@ -32,11 +32,14 @@ from send import send_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # Инициализация REDIS
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    redis = aioredis.from_url("redis://localhost", encoding="utf8", decode_responses=True)
-    
+    redis = aioredis.from_url(
+        "redis://localhost", encoding="utf8", decode_responses=True
+    )
+
     # Инициализация кеша после создания Redis соединения
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
@@ -44,7 +47,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 async def create_kafka_topic():
     admin_client = AIOKafkaAdminClient(**KAFKA_BASE_CONFIG)
@@ -55,7 +60,7 @@ async def create_kafka_topic():
         topic = NewTopic(
             name=KAFKA_TOPIC,
             num_partitions=KAFKA_NUM_PARTITIONS,
-            replication_factor=KAFKA_REPLICATION_FACTOR
+            replication_factor=KAFKA_REPLICATION_FACTOR,
         )
 
         await admin_client.create_topics([topic])
@@ -67,6 +72,7 @@ async def create_kafka_topic():
         logger.error(f"Ошибка преобразования типов: {ve}")
     except KafkaError as ke:
         logger.error(f"Ошибка при создании темы: {ke}")
+
 
 async def check_kafka_topic_exists(topic: str) -> bool:
     admin_client = AIOKafkaAdminClient(**KAFKA_BASE_CONFIG)
@@ -83,6 +89,7 @@ async def check_kafka_topic_exists(topic: str) -> bool:
     finally:
         await admin_client.close()
 
+
 async def create_kafka_topic_with_check():
     try:
         if await check_kafka_topic_exists(KAFKA_TOPIC):
@@ -95,48 +102,57 @@ async def create_kafka_topic_with_check():
         logger.error(f"Ошибка при создании топика: {e}")
         raise
 
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Content-Type", "Set-Cookie", "Access-Control-Allow-Headers", "Authorization", "Access-Control-Allow-Origins", "accept"],
+    allow_headers=[
+        "Content-Type",
+        "Set-Cookie",
+        "Access-Control-Allow-Headers",
+        "Authorization",
+        "Access-Control-Allow-Origins",
+        "accept",
+    ],
 )
 
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 
 es = Elasticsearch(
-    "http://localhost:9200",
-    headers={"Content-Type": "application/json"}
+    "http://localhost:9200", headers={"Content-Type": "application/json"}
 )
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = datetime.utcnow()
     response = await call_next(request)
     end_time = datetime.utcnow()
-    
+
     log_data = {
         "timestamp": start_time.isoformat(),
         "method": request.method,
         "path": request.url.path,
         "status_code": response.status_code,
-        "duration_ms": (end_time - start_time).total_seconds() * 1000
+        "duration_ms": (end_time - start_time).total_seconds() * 1000,
     }
-    
+
     # Отправка логов в Elasticsearch, используем body вместо document
     try:
         es.index(
             index="fastapi-logs",
             body=log_data,  # Заменили document на body
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         logger.info(f"Log successfully sent to Elasticsearch: {log_data}")
     except Exception as e:
         logger.error(f"Failed to send logs to Elasticsearch: {e}")
-    
+
     return response
+
 
 api_router = APIRouter(prefix="/api/v1")
 
