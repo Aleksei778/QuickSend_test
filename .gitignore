@@ -1,6 +1,5 @@
 certs/
 _certs/
-extension-frontend/
 .env
 venv/
 __pycache__/
